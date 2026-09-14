@@ -20,8 +20,8 @@ COL_PLAYER = (59, 120, 194)
 COL_ENEMY = (194, 59, 59)
 COL_EXIT = (232, 197, 58)
 COL_CRATE = (138, 90, 42)
-COL_TREE = (58, 157, 58)
-COL_ORE = (138, 138, 149)
+COL_WATER = (36, 84, 148)
+COL_WATER_ALT = (42, 96, 164)
 COL_TEXT = (235, 235, 235)
 COL_PANEL = (30, 30, 34)
 COL_PANEL_LINE = (100, 100, 110)
@@ -41,9 +41,14 @@ WEAPONS = [
 WEAPON_CATS = ["אקדחים", "תתי מקלע", "רובי סער", "מקלעים כבדים", "רובי צלפים"]
 
 TOOLS = [
-    dict(id="saw",     name="מסור", desc="נדרש לאיסוף עצים",  price=80),
-    dict(id="pickaxe", name="מכוש", desc="נדרש לכריית מכרות", price=80),
+    dict(id="saw",     name="מסור", desc="נדרש לאיסוף עצים",           price=80),
+    dict(id="pickaxe", name="מכוש", desc="נדרש לכל המכרות ולהר הגעש",  price=90),
+    dict(id="sickle",  name="מגל",  desc="נדרש לקציר חיטה וכותנה",     price=60),
+    dict(id="rod",     name="חכה",  desc="נדרש לדוג במים עם דגים",     price=70),
+    dict(id="torch",   name="לפיד", desc="נדרש כדי להיכנס למערות",     price=50),
+    dict(id="boat",    name="סירה", desc="מאפשרת לעבור מעל המים",      price=150),
 ]
+TOOL_BY_ID = {t["id"]: t for t in TOOLS}
 
 POTIONS = [
     dict(id="small",  name="תרופה קטנה",   heal=25,  price=40),
@@ -52,6 +57,26 @@ POTIONS = [
 ]
 
 WEAPON_BY_ID = {w["id"]: w for w in WEAPONS}
+
+# כל סוגי המשאבים במפה. renew = אחרי כמה מילישניות המשאב חוזר (0 = נעלם לתמיד).
+RESOURCE_TYPES = {
+    "tree":    dict(name="עץ",          tool="saw",     value=(6, 11),   color=(58, 157, 58),   mark="עץ", renew=0,     weight=10),
+    "bricks":  dict(name="מכרה לבנים",  tool="pickaxe", value=(4, 8),    color=(168, 86, 62),   mark="לב", renew=0,     weight=8),
+    "copper":  dict(name="מכרה נחושת",  tool="pickaxe", value=(8, 15),   color=(205, 118, 58),  mark="נח", renew=0,     weight=8),
+    "iron":    dict(name="מכרה ברזל",   tool="pickaxe", value=(12, 20),  color=(172, 176, 186), mark="בר", renew=0,     weight=7),
+    "gas":     dict(name="באר גז",      tool="pickaxe", value=(20, 32),  color=(150, 112, 206), mark="גז", renew=0,     weight=5),
+    "gold":    dict(name="מכרה זהב",    tool="pickaxe", value=(34, 52),  color=(228, 186, 54),  mark="זה", renew=0,     weight=4),
+    "diamond": dict(name="מכרה יהלום",  tool="pickaxe", value=(60, 95),  color=(120, 226, 232), mark="יה", renew=0,     weight=2),
+    "wheat":   dict(name="שדה חיטה",    tool="sickle",  value=(5, 9),    color=(222, 194, 88),  mark="חי", renew=12000, weight=8),
+    "cotton":  dict(name="שדה כותנה",   tool="sickle",  value=(7, 13),   color=(238, 238, 228), mark="כו", renew=12000, weight=7),
+    "cow":     dict(name="פרה",         tool=None,      value=(14, 22),  color=(206, 176, 150), mark="פר", renew=15000, weight=5),
+    "sheep":   dict(name="כבשה",        tool=None,      value=(11, 18),  color=(226, 226, 214), mark="כב", renew=15000, weight=5),
+    "chicken": dict(name="תרנגולת",     tool=None,      value=(7, 12),   color=(214, 120, 112), mark="תר", renew=10000, weight=6),
+    "cave":    dict(name="מערה",        tool="torch",   value=(30, 80),  color=(88, 88, 104),   mark="מע", renew=0,     weight=3),
+    "volcano": dict(name="הר געש רדום", tool="pickaxe", value=(60, 120), color=(196, 64, 40),   mark="הר", renew=0,     weight=2),
+}
+RESOURCE_KINDS = list(RESOURCE_TYPES)
+RESOURCE_WEIGHTS = [RESOURCE_TYPES[k]["weight"] for k in RESOURCE_KINDS]
 
 
 LATIN_RUN = re.compile(r"[A-Za-z0-9][A-Za-z0-9\-\./+%]*(?: [A-Za-z0-9\-\./+%]+)*")
@@ -122,7 +147,7 @@ class Game:
         self.money = 100
         self.owned_weapons = ["glock"]
         self.weapon_index = 0
-        self.tools = {"saw": False, "pickaxe": False}
+        self.tools = {t["id"]: False for t in TOOLS}
         self.potions = {"small": 0, "medium": 0, "large": 0}
         self.game_over = False
         self.shop_open = False
@@ -157,23 +182,62 @@ class Game:
                 out.append(free.pop())
             return out
 
-        max_weapon = min(3 + self.level // 2, len(WEAPONS))
+        self.max_weapon = min(3 + self.level // 2, len(WEAPONS))
         self.enemies = []
         for (tx, ty) in take(min(3 + self.level, 12)):
-            weapon = WEAPONS[random.randrange(max_weapon)]
-            self.enemies.append(Enemy(tx * TILE + TILE / 2, ty * TILE + TILE / 2,
-                                      weapon, 30 + self.level * 6))
+            self.enemies.append(self.make_enemy(tx * TILE + TILE / 2, ty * TILE + TILE / 2))
 
         self.resources = []
-        for i, (tx, ty) in enumerate(take(6 + self.level)):
-            kind = "tree" if i % 2 == 0 else "ore"
-            self.resources.append(dict(x=tx * TILE + TILE / 2, y=ty * TILE + TILE / 2, kind=kind))
+        for (tx, ty) in take(9 + self.level * 2):
+            kind = random.choices(RESOURCE_KINDS, weights=RESOURCE_WEIGHTS)[0]
+            self.resources.append(dict(x=tx * TILE + TILE / 2, y=ty * TILE + TILE / 2,
+                                       kind=kind, ready_at=0))
 
         self.crates = [dict(x=tx * TILE + TILE / 2, y=ty * TILE + TILE / 2)
                        for (tx, ty) in take(3 + self.level // 2)]
 
+        self.fish_cooldown = {}
+        self.place_water(free)
+
         self.bullets = []
         self.sparks = []
+
+    def make_enemy(self, x, y):
+        weapon = WEAPONS[random.randrange(self.max_weapon)]
+        return Enemy(x, y, weapon, 30 + self.level * 6)
+
+    def place_water(self, candidates):
+        """פורס שלוליות מים, אבל תמיד משאיר דרך יבשה מההתחלה ליציאה."""
+        random.shuffle(candidates)
+        placed = 0
+        target = 5 + self.level * 2
+        for (x, y) in candidates:
+            if placed >= target:
+                break
+            self.grid[y][x] = 2
+            if self.path_exists((1, 1), self.exit_tile):
+                placed += 1
+            else:
+                self.grid[y][x] = 0
+        water = [(x, y) for y in range(self.rows) for x in range(self.cols)
+                 if self.grid[y][x] == 2]
+        random.shuffle(water)
+        for (x, y) in water[:max(1, len(water) // 3)]:
+            self.grid[y][x] = 3
+
+    def path_exists(self, start, goal):
+        seen = {start}
+        queue = [start]
+        while queue:
+            x, y = queue.pop()
+            if (x, y) == goal:
+                return True
+            for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                if (0 <= nx < self.cols and 0 <= ny < self.rows
+                        and (nx, ny) not in seen and self.grid[ny][nx] == 0):
+                    seen.add((nx, ny))
+                    queue.append((nx, ny))
+        return False
 
     def generate_maze(self, w, h):
         grid = [[1] * w for _ in range(h)]
@@ -199,15 +263,22 @@ class Game:
     def weapon(self):
         return WEAPON_BY_ID[self.owned_weapons[self.weapon_index]]
 
-    def is_wall(self, px, py):
+    def tile_at(self, px, py):
         gx, gy = int(px // TILE), int(py // TILE)
         if gx < 0 or gy < 0 or gx >= self.cols or gy >= self.rows:
-            return True
-        return self.grid[gy][gx] == 1
+            return 1
+        return self.grid[gy][gx]
 
-    def can_move(self, x, y, r):
-        return not (self.is_wall(x - r, y - r) or self.is_wall(x + r, y - r) or
-                    self.is_wall(x - r, y + r) or self.is_wall(x + r, y + r))
+    def is_wall(self, px, py):
+        return self.tile_at(px, py) == 1
+
+    def blocked(self, px, py, boat):
+        tile = self.tile_at(px, py)
+        return tile == 1 or (tile in (2, 3) and not boat)
+
+    def can_move(self, x, y, r, boat=False):
+        return not (self.blocked(x - r, y - r, boat) or self.blocked(x + r, y - r, boat) or
+                    self.blocked(x - r, y + r, boat) or self.blocked(x + r, y + r, boat))
 
     def say(self, text):
         self.message = text
@@ -234,9 +305,10 @@ class Game:
             dx, dy = dx / length, dy / length
             self.dir = (dx, dy)
             speed = 2.6
-            if self.can_move(self.px + dx * speed, self.py, 11):
+            boat = self.tools["boat"]
+            if self.can_move(self.px + dx * speed, self.py, 11, boat):
                 self.px += dx * speed
-            if self.can_move(self.px, self.py + dy * speed, 11):
+            if self.can_move(self.px, self.py + dy * speed, 11, boat):
                 self.py += dy * speed
 
         if keys[pygame.K_SPACE]:
@@ -252,26 +324,41 @@ class Game:
         self.bullets.append(Bullet(self.px, self.py, self.dir[0], self.dir[1],
                                    9, w["dmg"], w["acc"], w["rng"], True))
 
+    def nearest_resource(self):
+        best, best_d = None, 36
+        for res in self.resources:
+            d = math.hypot(res["x"] - self.px, res["y"] - self.py)
+            if d < best_d:
+                best, best_d = res, d
+        return best
+
+    def nearest_fish_tile(self):
+        """מחפש אריח מים עם דגים ליד השחקן (אפשר לדוג גם מהחוף)."""
+        gx, gy = int(self.px // TILE), int(self.py // TILE)
+        best, best_d = None, 1.7
+        for ty in range(gy - 1, gy + 2):
+            for tx in range(gx - 1, gx + 2):
+                if 0 <= tx < self.cols and 0 <= ty < self.rows and self.grid[ty][tx] == 3:
+                    d = math.hypot(tx + 0.5 - self.px / TILE, ty + 0.5 - self.py / TILE)
+                    if d < best_d:
+                        best, best_d = (tx, ty), d
+        return best
+
     def interact(self):
         if self.now() - self.last_interact < 250:
             return
-        for res in list(self.resources):
-            if math.hypot(res["x"] - self.px, res["y"] - self.py) < 34:
-                self.last_interact = self.now()
-                if res["kind"] == "tree":
-                    if not self.tools["saw"]:
-                        self.say("צריך מסור כדי לאסוף עצים - קנה בחנות!")
-                        return
-                    self.money += 8
-                    self.say("אספת עץ! +8 כסף")
-                else:
-                    if not self.tools["pickaxe"]:
-                        self.say("צריך מכוש כדי לכרות - קנה בחנות!")
-                        return
-                    self.money += 14
-                    self.say("כרית מהמכרה! +14 כסף")
-                self.resources.remove(res)
-                return
+
+        res = self.nearest_resource()
+        if res is not None:
+            self.last_interact = self.now()
+            self.harvest(res)
+            return
+
+        tile = self.nearest_fish_tile()
+        if tile is not None:
+            self.last_interact = self.now()
+            self.go_fishing(tile)
+            return
 
         for crate in list(self.crates):
             if math.hypot(crate["x"] - self.px, crate["y"] - self.py) < 34:
@@ -296,6 +383,81 @@ class Game:
                     self.hp = min(self.max_hp, self.hp + potion["heal"])
                     self.say("שתית %s! +%d חיים" % (potion["name"], potion["heal"]))
                     return
+
+    def harvest(self, res):
+        info = RESOURCE_TYPES[res["kind"]]
+        tool = info["tool"]
+        if tool and not self.tools[tool]:
+            self.say("צריך %s בשביל %s - קנה בחנות!" % (TOOL_BY_ID[tool]["name"], info["name"]))
+            return
+        if res["ready_at"] > self.now():
+            self.say("%s עוד לא מוכן - חכה קצת" % info["name"])
+            return
+
+        gain = random.randint(*info["value"])
+        self.money += gain
+
+        if res["kind"] == "cave":
+            extra = ""
+            if random.random() < 0.4:
+                pid = random.choice(["small", "medium", "large"])
+                self.potions[pid] += 1
+                extra = " ומצאת תרופה"
+            self.say("חקרת את המערה! +%d כסף%s" % (gain, extra))
+            if random.random() < 0.35:
+                self.enemies.append(self.make_enemy(res["x"], res["y"]))
+                self.say("יצא אויב מהמערה! היזהר")
+        elif res["kind"] == "volcano":
+            if random.random() < 0.3:
+                self.hp -= 10
+                if self.hp <= 0:
+                    self.hp = 0
+                    self.game_over = True
+                self.say("כרית בהר הגעש! +%d כסף אבל נכווית (-10 חיים)" % gain)
+            else:
+                self.say("כרית אבן געש! +%d כסף" % gain)
+        else:
+            self.say("אספת %s! +%d כסף" % (info["name"], gain))
+
+        if info["renew"]:
+            res["ready_at"] = self.now() + info["renew"]
+        else:
+            self.resources.remove(res)
+
+    def go_fishing(self, tile):
+        if not self.tools["rod"]:
+            self.say("צריך חכה כדי לדוג - קנה בחנות!")
+            return
+        if self.fish_cooldown.get(tile, 0) > self.now():
+            self.say("אין כאן דגים כרגע - חכה קצת")
+            return
+        gain = random.randint(9, 16)
+        self.money += gain
+        self.fish_cooldown[tile] = self.now() + 9000
+        self.say("דגת דג! +%d כסף" % gain)
+
+    def interact_hint(self):
+        """שורת עזרה קטנה שמראה מה אפשר לעשות במקום שבו אתה עומד."""
+        res = self.nearest_resource()
+        if res is not None:
+            info = RESOURCE_TYPES[res["kind"]]
+            tool = info["tool"]
+            if tool and not self.tools[tool]:
+                return "%s - צריך %s" % (info["name"], TOOL_BY_ID[tool]["name"])
+            if res["ready_at"] > self.now():
+                return "%s - עוד לא מוכן" % info["name"]
+            return "Ctrl = %s" % info["name"]
+        tile = self.nearest_fish_tile()
+        if tile is not None:
+            if not self.tools["rod"]:
+                return "מים עם דגים - צריך חכה"
+            if self.fish_cooldown.get(tile, 0) > self.now():
+                return "מים עם דגים - עוד לא חזרו"
+            return "Ctrl = דיג"
+        for crate in self.crates:
+            if math.hypot(crate["x"] - self.px, crate["y"] - self.py) < 34:
+                return "Ctrl = פתיחת תיבה"
+        return ""
 
     # ---------- אויבים ----------
     def update_enemies(self):
@@ -490,8 +652,21 @@ class Game:
         for gy in range(max(0, y0), min(self.rows, y1)):
             for gx in range(max(0, x0), min(self.cols, x1)):
                 rect = pygame.Rect(sx(gx * TILE), sy(gy * TILE), TILE, TILE)
-                if self.grid[gy][gx] == 1:
+                tile = self.grid[gy][gx]
+                if tile == 1:
                     pygame.draw.rect(self.screen, COL_WALL, rect)
+                elif tile in (2, 3):
+                    pygame.draw.rect(self.screen, COL_WATER if (gx + gy) % 2 == 0 else COL_WATER_ALT, rect)
+                    pygame.draw.line(self.screen, (70, 130, 200),
+                                     (rect.x + 5, rect.y + 7), (rect.x + TILE - 6, rect.y + 7))
+                    if tile == 3:
+                        ready = self.fish_cooldown.get((gx, gy), 0) <= self.now()
+                        fish_col = (240, 176, 72) if ready else (74, 110, 150)
+                        pygame.draw.ellipse(self.screen, fish_col,
+                                            pygame.Rect(rect.x + 10, rect.y + 16, 13, 8))
+                        pygame.draw.polygon(self.screen, fish_col,
+                                            [(rect.x + 10, rect.y + 20), (rect.x + 4, rect.y + 15),
+                                             (rect.x + 4, rect.y + 25)])
                 else:
                     pygame.draw.rect(self.screen, COL_FLOOR_A if (gx + gy) % 2 == 0 else COL_FLOOR_B, rect)
 
@@ -500,8 +675,15 @@ class Game:
                          pygame.Rect(sx(ex * TILE + 4), sy(ey * TILE + 4), TILE - 8, TILE - 8), border_radius=4)
 
         for res in self.resources:
-            color = COL_TREE if res["kind"] == "tree" else COL_ORE
-            pygame.draw.circle(self.screen, color, (sx(res["x"]), sy(res["y"])), 10)
+            info = RESOURCE_TYPES[res["kind"]]
+            ready = res["ready_at"] <= self.now()
+            color = info["color"] if ready else tuple(c // 2 for c in info["color"])
+            cx, cy = sx(res["x"]), sy(res["y"])
+            pygame.draw.circle(self.screen, color, (cx, cy), 12)
+            pygame.draw.circle(self.screen, (16, 16, 20), (cx, cy), 12, 1)
+            text_col = (20, 20, 24) if sum(color) > 420 else (245, 245, 245)
+            mark = self.font_small.render(rtl(info["mark"]), True, text_col)
+            self.screen.blit(mark, (cx - mark.get_width() // 2, cy - mark.get_height() // 2))
 
         for crate in self.crates:
             rect = pygame.Rect(sx(crate["x"]) - 10, sy(crate["y"]) - 10, 20, 20)
@@ -547,6 +729,15 @@ class Game:
             x -= text.get_width()
             self.screen.blit(text, (x, 7))
             x -= 26
+
+        hint = self.interact_hint()
+        if hint:
+            text = self.font.render(rtl(hint), True, (255, 226, 150))
+            box = pygame.Rect(SCREEN_W // 2 - text.get_width() // 2 - 12, SCREEN_H - 62,
+                              text.get_width() + 24, 30)
+            pygame.draw.rect(self.screen, (44, 44, 52), box, border_radius=6)
+            pygame.draw.rect(self.screen, (110, 100, 70), box, 1, border_radius=6)
+            self.screen.blit(text, (box.x + 12, box.y + 5))
 
         help_text = self.font_small.render(
             rtl("חצים = תזוזה | רווח = ירי | Ctrl = איסוף/תרופה | Shift = חנות | 1-9 = החלפת נשק"),
