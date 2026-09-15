@@ -107,6 +107,365 @@ def load_font(size, bold=False):
     return pygame.font.SysFont("arial", size, bold=bold)
 
 
+# ---------- ציורים של כלי הנשק והכלים ----------
+# כל ציור מצויר על לוח של 88x32 (הגובה נמדד מהמרכז: -16 למעלה, +16 למטה),
+# בהגדלה של פי 4, ואז מוקטן - ככה הקווים יוצאים חלקים והנשק נראה אמיתי.
+
+ICON_W, ICON_H, ICON_SCALE = 88, 32, 4
+
+STEEL = (186, 190, 202)
+STEEL_HI = (224, 228, 238)
+STEEL_LO = (126, 130, 142)
+GUNMETAL = (108, 112, 124)
+BLACK = (52, 54, 60)
+BLACK_HI = (76, 78, 86)
+BLACK_LO = (32, 32, 38)
+POLYMER = (64, 64, 72)
+WOOD = (146, 96, 48)
+WOOD_HI = (182, 128, 70)
+WOOD_LO = (104, 66, 30)
+OLIVE = (94, 104, 70)
+OLIVE_HI = (124, 134, 92)
+TAN = (176, 150, 96)
+LENS = (118, 172, 150)
+
+
+class IconPainter:
+    """מצייר על לוח מוגדל, בקואורדינטות של הלוח הקטן (88x32)."""
+
+    def __init__(self, surface, scale):
+        self.surf = surface
+        self.k = scale
+        self.cy = surface.get_height() / 2.0
+
+    def _pt(self, a, b):
+        return (int(round(a * self.k)), int(round(self.cy + b * self.k)))
+
+    def _len(self, v):
+        return max(1, int(round(v * self.k)))
+
+    def box(self, a, b, w, h, col, rad=0):
+        rect = pygame.Rect(self._pt(a, b), (self._len(w), self._len(h)))
+        pygame.draw.rect(self.surf, col, rect, border_radius=int(round(rad * self.k)))
+
+    def poly(self, points, col):
+        pygame.draw.polygon(self.surf, col, [self._pt(a, b) for a, b in points])
+
+    def line(self, a1, b1, a2, b2, col, w=1):
+        pygame.draw.line(self.surf, col, self._pt(a1, b1), self._pt(a2, b2), self._len(w))
+
+    def circ(self, a, b, r, col, w=0):
+        pygame.draw.circle(self.surf, col, self._pt(a, b), self._len(r),
+                           0 if w == 0 else self._len(w))
+
+    def arc(self, a, b, w, h, start, end, col, width=1):
+        rect = pygame.Rect(self._pt(a, b), (self._len(w), self._len(h)))
+        pygame.draw.arc(self.surf, col, rect, start, end, self._len(width))
+
+    def ribs(self, a, b, count, step, height, col, w=0.7):
+        for i in range(count):
+            self.line(a + i * step, b, a + i * step, b + height, col, w)
+
+
+def paint_glock(g):
+    g.box(28, -1.6, 27, 4.2, POLYMER, 0.8)                     # מסגרת
+    g.poly([(33, 2), (45.5, 2), (42, 15), (29.5, 15)], POLYMER)  # ידית
+    g.poly([(34.5, 3.4), (44, 3.4), (41, 13.6), (31.5, 13.6)], (78, 78, 86))
+    g.arc(39, -1.8, 13, 13, 3.35, 6.15, POLYMER, 1.4)          # מגן הדק
+    g.line(44.5, 2.2, 44.5, 5.4, BLACK_LO, 1.1)                # הדק
+    g.box(26, -10.6, 34, 8.6, (70, 70, 78), 0.8)               # מרעם
+    g.box(26, -10.6, 34, 2.2, (92, 92, 100), 0.8)
+    g.ribs(28, -9, 4, 1.7, 6, (46, 46, 52))
+    g.ribs(52.5, -9, 4, 1.7, 6, (46, 46, 52))
+    g.box(44, -9.6, 7.5, 3.4, (34, 34, 40), 0.4)               # חלון גילוי
+    g.box(59.6, -8.6, 2.4, 4.2, STEEL_LO)                      # קנה
+    g.box(27.6, -12.4, 2.8, 2, BLACK_LO)
+    g.box(56, -12.4, 2.4, 2, BLACK_LO)
+
+
+def paint_p226(g):
+    g.box(26, -1.8, 28, 4.4, STEEL_LO, 0.8)
+    g.poly([(31, 2.4), (44, 2.4), (40.5, 16), (28, 16)], (44, 42, 44))     # ידיות
+    g.ribs(31, 4.5, 5, 2.2, 9, (78, 74, 76), 0.6)
+    g.arc(38, -1.6, 13, 13, 3.35, 6.15, STEEL_LO, 1.4)
+    g.line(43.5, 2.4, 43.5, 5.6, BLACK_LO, 1.1)
+    g.box(24, -10.8, 35, 8.8, STEEL, 0.8)                                  # מרעם פלדה
+    g.box(24, -10.8, 35, 2.4, STEEL_HI, 0.8)
+    g.box(24, -3.4, 35, 1.4, STEEL_LO)
+    g.ribs(26.5, -9, 5, 1.9, 6.4, (140, 144, 154))
+    g.box(42, -9.8, 8, 3.4, (56, 56, 62), 0.4)
+    g.poly([(22.5, -12.6), (26.5, -13), (26, -7), (22, -7.4)], STEEL_LO)   # נוקר
+    g.box(58.6, -8.8, 2.4, 4.4, GUNMETAL)
+    g.box(25.6, -12.6, 2.8, 2, BLACK_LO)
+    g.box(55, -12.6, 2.4, 2, BLACK_LO)
+
+
+def paint_uzi(g):
+    g.line(12, -10, 28, -10, STEEL_LO, 1.3)                    # כתפייה מקופלת
+    g.line(12, -10, 12, -1.5, STEEL_LO, 1.3)
+    g.line(12, -1.5, 24, 1.5, STEEL_LO, 1.3)
+    g.box(27, -11.4, 25, 14, BLACK, 0.8)                       # גוף מרובע
+    g.box(27, -11.4, 25, 2.6, BLACK_HI, 0.8)
+    g.box(32, -13.8, 11, 2.8, (98, 98, 108), 0.6)              # ידית דריכה עליונה
+    g.box(50, -7, 7, 5.6, BLACK_HI, 0.6)
+    g.box(56, -5.8, 8, 3, STEEL_LO)                            # קנה
+    g.poly([(55, -7), (57, -12.4), (59, -7)], (110, 110, 120)) # כוונת
+    g.box(29.5, -13.6, 2.6, 2.2, BLACK_LO)
+    g.box(31.5, 2.2, 13.5, 6.4, BLACK_HI, 0.8)                 # ידית
+    g.box(33.5, 4, 9.5, 14.5, (96, 96, 106), 0.5)              # מחסנית בתוך הידית
+    g.ribs(34.5, 7, 4, 2.2, 8, (66, 66, 74), 0.6)
+    g.arc(43, 1, 10, 10, 3.4, 6.1, BLACK_HI, 1.2)
+
+
+def paint_mp5(g):
+    g.box(4, -7.4, 18, 8.4, BLACK, 1)                          # כתפייה
+    g.box(4, -7.4, 2.4, 8.4, BLACK_LO, 0.6)
+    g.box(21, -10.4, 27, 11.6, BLACK_HI, 0.9)                  # גוף
+    g.box(21, -10.4, 27, 2.4, (92, 94, 102), 0.9)
+    g.box(28, -13.6, 19, 3.2, BLACK_HI, 1.2)                   # צינור דריכה
+    g.circ(29.5, -12, 2.1, (104, 104, 114))
+    g.circ(24, -13, 2.6, BLACK_HI)                             # כוונת אחורית
+    g.box(47, -8.8, 15, 8.6, BLACK, 2)                         # מגן יד
+    g.ribs(49, -7, 6, 2.1, 6, (40, 40, 46), 0.6)
+    g.box(61, -5.8, 10, 2.8, STEEL_LO)                         # קנה
+    g.circ(72, -4.4, 4.6, BLACK_HI, 1.3)                       # כוונת קדמית עגולה
+    g.line(72, -8.4, 72, -5.4, BLACK_HI, 0.8)
+    g.poly([(36, 2), (44.5, 2), (49.5, 15.5), (41, 16.5)], BLACK_HI)   # מחסנית
+    g.poly([(24.5, 2), (33, 2), (31, 13.5), (22.5, 13.5)], BLACK)      # ידית
+    g.arc(32, 1, 11, 11, 3.4, 6.1, BLACK_HI, 1.2)
+
+
+def paint_m16(g):
+    g.poly([(2, -8), (21, -9.2), (21, 3.4), (2, 5)], BLACK)    # קת
+    g.box(2, -8, 2.4, 13, BLACK_LO, 0.6)
+    g.poly([(3, -7), (20, -8.2), (20, -6.6), (3, -5.4)], BLACK_HI)
+    g.box(21, -9.4, 23, 11.4, BLACK_HI, 0.8)                   # גוף
+    g.box(25, -15.2, 19, 5.8, BLACK_HI, 0.8)                   # ידית נשיאה
+    g.box(27, -13.8, 15, 1.6, BLACK_LO)
+    g.line(26.5, -9.6, 42.5, -9.6, BLACK_LO, 0.8)
+    g.box(44, -7.6, 19, 9.2, BLACK, 3)                         # מגן יד
+    g.ribs(46, -6, 8, 2.1, 6.6, (38, 38, 44), 0.6)
+    g.box(63, -4.2, 15, 2.8, STEEL_LO)                         # קנה
+    g.poly([(65.5, -4.6), (69.5, -4.6), (68.5, -13.6), (66.5, -13.6)], BLACK_HI)  # בסיס כוונת
+    g.box(66.6, -15.4, 1.8, 2, BLACK_HI)
+    g.box(77.5, -5.4, 6.5, 5, BLACK_HI, 0.6)                   # בולם להבה
+    g.ribs(78.5, -4.6, 3, 1.8, 3.4, BLACK_LO, 0.6)
+    g.poly([(31, 3), (40, 3), (41, 16), (32, 16)], BLACK_HI)   # מחסנית
+    g.poly([(23, 3), (31, 3), (29, 14), (21, 14)], BLACK)      # ידית
+    g.arc(29, 2, 11, 11, 3.4, 6.1, BLACK_HI, 1.2)
+
+
+def paint_ak47(g):
+    g.poly([(2, -7.4), (19, -9.4), (19, 2.4), (2, 6.4)], WOOD)             # קת עץ
+    g.poly([(3, -6.4), (18, -8.2), (18, -6.6), (3, -4.8)], WOOD_HI)
+    g.box(19, -9.4, 22, 12.4, STEEL_LO, 0.8)                               # גוף
+    g.box(21, -12, 17.5, 3, (152, 156, 166), 0.6)                          # מכסה עליון
+    g.circ(24, -4, 1.1, (86, 90, 100))
+    g.circ(36, -4, 1.1, (86, 90, 100))
+    g.box(41, -11, 4.4, 3.2, GUNMETAL, 0.4)                                # בלוק כוונת אחורית
+    g.box(45, -9.4, 15, 8.4, WOOD, 1.4)                                    # מגן יד עץ
+    g.poly([(45.5, -8.6), (59.5, -8.6), (59.5, -7), (45.5, -7)], WOOD_HI)
+    g.box(45, -13.2, 15, 3.6, (158, 162, 172), 0.8)                        # צינור גז
+    g.box(60, -6.2, 12, 2.8, STEEL_LO)                                     # קנה
+    g.poly([(68.5, -6.6), (72.5, -6.6), (71.5, -13.4), (69.5, -13.4)], GUNMETAL)
+    g.box(72, -7.6, 5, 4.6, (128, 132, 142), 0.6)                          # פיית לוע
+    g.poly([(29, 3), (39, 3), (46.5, 14.5), (36, 18)], (172, 112, 54))     # מחסנית מעוקלת
+    g.poly([(30, 4.4), (37.6, 4.4), (43.5, 13.6), (35.5, 16)], (196, 132, 66))
+    g.poly([(21, 3), (29, 3), (27, 14.5), (19, 14.5)], WOOD_LO)            # ידית
+    g.arc(28, 2, 11, 11, 3.4, 6.1, STEEL_LO, 1.2)
+
+
+def paint_m249(g):
+    g.poly([(2, -7), (17, -9), (17, 2.4), (2, 5)], BLACK)                  # קת
+    g.box(17, -11.4, 30, 16.4, BLACK_HI, 1)                                # גוף
+    g.box(19, -13.8, 25, 3.2, (94, 96, 104), 0.8)                          # מכסה הזנה
+    g.box(25, -16, 13, 2.6, (104, 106, 116), 0.8)                          # ידית נשיאה
+    g.box(47, -8.4, 19, 6.6, (100, 102, 112), 0.8)                         # מעטה קנה
+    g.ribs(49.5, -8, 6, 2.6, 6, (56, 58, 66), 0.8)
+    g.box(66, -9, 7, 7, (122, 124, 134), 0.6)                              # בולם להבה
+    g.box(13.5, 3.6, 19, 11.4, OLIVE, 1.4)                                 # ארגז תחמושת
+    g.box(13.5, 3.6, 19, 2.6, OLIVE_HI, 1.4)
+    g.poly([(31.5, 5.6), (38, 1.6), (39, 3.4), (32.5, 7.4)], TAN)          # מחסנית שרשרת
+    g.line(50, 4.4, 43.5, 16, STEEL_LO, 1.4)                               # חצובה
+    g.line(50, 4.4, 56.5, 16, STEEL_LO, 1.4)
+    g.poly([(22, 5), (30, 5), (28, 15.5), (20, 15.5)], BLACK)              # ידית
+    g.arc(29, 4, 11, 11, 3.4, 6.1, BLACK_HI, 1.2)
+
+
+def paint_m2(g):
+    g.box(3, -12, 4.4, 11, BLACK, 1)                                       # ידיות אחוריות
+    g.box(3, 2, 4.4, 10, BLACK, 1)
+    g.box(8, -9, 6, 15, BLACK_HI, 0.8)
+    g.box(13, -10.4, 30, 17, BLACK_HI, 1)                                  # גוף
+    g.box(13, -10.4, 30, 3, (92, 94, 102), 1)
+    g.circ(20, -2, 2.2, BLACK_LO)
+    g.box(43, -8.4, 36, 11.4, (96, 98, 108), 1.4)                          # מעטה קנה מחורר
+    g.box(43, -8.4, 36, 2.6, (128, 130, 140), 1.4)
+    for i in range(6):
+        g.circ(47 + i * 5.6, -5, 1.5, (44, 44, 50))
+        g.circ(47 + i * 5.6, 0, 1.5, (44, 44, 50))
+    g.box(79, -5.4, 7, 5.4, (140, 142, 152), 0.6)                          # לוע
+    g.line(47, 3, 36, 16, STEEL_LO, 1.5)                                   # חצובה
+    g.line(47, 3, 58, 16, STEEL_LO, 1.5)
+    g.line(47, 3, 47, 16, STEEL_LO, 1.5)
+
+
+def paint_awp(g):
+    g.poly([(2, -5), (11, -8.4), (27, -8.4), (27, 6), (13, 8.4), (2, 8.4)], OLIVE)
+    g.poly([(3, -4), (12, -7), (26, -7), (26, -5.4), (3, -2.4)], OLIVE_HI)
+    g.circ(13.5, 1.5, 3.2, (24, 24, 28))                                   # חור אגודל
+    g.box(11, -11, 15, 3.2, OLIVE_HI, 1)                                   # משענת לחי
+    g.box(26, -7, 18, 8.6, BLACK_HI, 0.8)                                  # גוף
+    g.line(40, -2.4, 46, 4, STEEL, 1.8)                                    # ידית דריכה
+    g.circ(46.6, 4.6, 2.1, STEEL_HI)
+    g.box(26, -16.4, 26, 7.8, (42, 44, 48), 1.6)                           # טלסקופ
+    g.box(26, -16.4, 26, 2.2, (66, 68, 74), 1.6)
+    g.box(24.2, -15.4, 2.4, 6, LENS, 0.4)
+    g.box(51.4, -15.4, 5.6, 6.2, (42, 44, 48), 0.8)                        # מצחיית עדשה
+    g.box(56, -14.6, 1.8, 4.6, LENS, 0.4)
+    g.box(29.5, -9.2, 3.2, 3, (58, 58, 64))
+    g.box(45, -9.2, 3.2, 3, (58, 58, 64))
+    g.box(30, 1.6, 9, 4.4, BLACK_HI, 0.5)                                  # מחסנית
+    g.box(44, -4.4, 31, 4.2, (104, 106, 116))                              # קנה
+    g.ribs(50, -3.6, 6, 3.4, 2.6, (78, 80, 90), 0.6)
+    g.box(74, -5.4, 8, 6.2, (84, 86, 94), 0.6)                             # בולם
+    g.line(63, 0, 57, 14.5, STEEL_LO, 1.4)                                 # חצובה
+    g.line(63, 0, 69, 14.5, STEEL_LO, 1.4)
+
+
+def paint_barrett(g):
+    g.poly([(2, -6), (13, -8), (13, 4.4), (2, 9)], BLACK)                  # קת
+    g.box(11, -8.4, 55, 12.4, BLACK_HI, 1)                                 # גוף ארוך
+    g.box(11, -8.4, 55, 2.6, (92, 94, 102), 1)
+    g.circ(20, -1, 2.4, BLACK_LO)
+    g.circ(27, -1, 2.4, BLACK_LO)
+    g.box(24, -17, 29, 8.4, (42, 44, 48), 1.6)                             # טלסקופ גדול
+    g.box(24, -17, 29, 2.4, (66, 68, 74), 1.6)
+    g.box(22.2, -16, 2.4, 6.4, LENS, 0.4)
+    g.box(52.4, -16, 2.4, 6.4, LENS, 0.4)
+    g.box(27, -9.4, 3.4, 3.2, (58, 58, 64))
+    g.box(47, -9.4, 3.4, 3.2, (58, 58, 64))
+    g.box(65, -5.4, 11, 6.4, (108, 110, 120))                              # קנה
+    g.box(75, -8.6, 11, 12.6, (88, 90, 98), 0.8)                           # בולם להבה גדול
+    g.box(77.5, -6.4, 2.2, 8, BLACK_LO)
+    g.box(81.5, -6.4, 2.2, 8, BLACK_LO)
+    g.poly([(25, 4), (33, 4), (31, 15.5), (23, 15.5)], BLACK)              # ידית
+    g.arc(31, 3, 11, 11, 3.4, 6.1, BLACK_HI, 1.2)
+    g.line(58, 4, 52, 16, STEEL_LO, 1.4)                                   # חצובה
+    g.line(58, 4, 64, 16, STEEL_LO, 1.4)
+
+
+WEAPON_PAINTERS = {
+    "glock": paint_glock, "p226": paint_p226, "uzi": paint_uzi, "mp5": paint_mp5,
+    "m16": paint_m16, "ak47": paint_ak47, "m249": paint_m249, "m2": paint_m2,
+    "awp": paint_awp, "barrett": paint_barrett,
+}
+
+
+def paint_saw(g):
+    g.box(3, -11.5, 16, 17, WOOD, 4)                                       # ידית עץ
+    g.box(3, -11.5, 16, 4, WOOD_HI, 4)
+    g.circ(10.5, -3, 3.4, (24, 24, 28))
+    g.circ(6.5, -8, 1, WOOD_LO)
+    g.poly([(17, -9.5), (77, -6), (77, 2), (17, 5.5)], STEEL)              # להב
+    g.poly([(18, -8.4), (76, -5), (76, -3), (18, -6.4)], STEEL_HI)
+    for i in range(13):
+        a = 19 + i * 4.5
+        g.poly([(a, 4.6), (a + 4.5, 4.4), (a + 2.2, 9.5)], STEEL)          # שיניים
+    g.circ(13, -9, 1.2, (60, 60, 66))
+
+
+def paint_pickaxe(g):
+    g.poly([(41, -6), (47, -6), (49, 16), (39, 16)], WOOD)                 # ידית
+    g.poly([(42, -5), (44.5, -5), (45.5, 15), (42.5, 15)], WOOD_HI)
+    g.poly([(15, -15.5), (30, -11), (44, -8.6), (58, -11), (73, -15.5),
+            (70, -10.5), (57, -6.5), (44, -4.6), (31, -6.5), (18, -10.5)], STEEL_LO)
+    g.poly([(18, -13.4), (31, -9.4), (44, -7.2), (57, -9.4), (69, -13.2),
+            (67, -11.6), (56, -8.2), (44, -6.2), (32, -8.2), (20, -11.6)], STEEL_HI)
+    g.box(40, -10.5, 8.5, 6.5, (152, 156, 166), 1)                         # עין המכוש
+
+
+def paint_sickle(g):
+    g.poly([(8, 15), (14, 8.5), (22, 12), (16, 17)], WOOD)                 # ידית
+    g.poly([(9, 13.6), (14.5, 9.4), (17.5, 10.6), (12, 15)], WOOD_HI)
+    g.arc(15, -13, 52, 34, 0.35, 3.4, STEEL, 3.2)                          # להב מעוקל
+    g.arc(18, -10, 46, 29, 0.5, 3.35, STEEL_HI, 1.1)
+
+
+def paint_rod(g):
+    g.box(0, 13.5, 88, 3, (48, 88, 146))                                   # מים
+    g.line(0, 13.8, 88, 13.8, (78, 126, 190), 0.8)
+    g.poly([(7, 10.5), (10.5, 7.5), (62, -14), (60, -16)], WOOD)           # קנה
+    g.circ(17, 5.5, 4.2, (58, 58, 66))                                     # גלגלת
+    g.circ(17, 5.5, 2, (150, 152, 162))
+    g.line(17, 5.5, 13, 9, (58, 58, 66), 1.2)
+    g.circ(33, -1.5, 1.4, (150, 152, 162), 0.6)
+    g.circ(48, -8, 1.2, (150, 152, 162), 0.6)
+    g.line(61, -15, 66, 0, (226, 228, 238), 0.6)                           # חוט
+    g.line(66, 0, 67, 8, (226, 228, 238), 0.6)
+    g.circ(67, 10, 3.6, (226, 76, 76))                                     # מצוף
+    g.box(63.4, 10, 7.2, 3.6, (238, 238, 244))
+    g.arc(70, 4, 8, 8, 3.3, 6.0, STEEL, 1)                                 # קרס
+
+
+def paint_torch(g):
+    g.poly([(13, 17), (18, 14.5), (41, 1), (37, -2.5)], WOOD)              # מקל
+    g.poly([(14, 15.6), (17, 14), (39, 1), (37.6, -0.6)], WOOD_HI)
+    g.poly([(36, 1.5), (33, -4), (37, -6)], (120, 96, 60))                 # בד
+    g.poly([(40, 3), (32, -4.5), (38.5, -8), (43, -18), (50, -8.5),
+            (53, -0.5), (46.5, 5)], (238, 126, 34))                        # להבה
+    g.poly([(41, 1.5), (37, -4), (42, -8), (45, -14), (48.5, -7),
+            (49.5, -1), (45, 3)], (250, 178, 56))
+    g.poly([(42.5, 0), (40.5, -5), (44, -10), (46.5, -5), (46, 0.5)], (252, 230, 130))
+
+
+def paint_boat(g):
+    g.box(0, 11, 88, 5, (48, 88, 146))                                     # מים
+    g.line(0, 11.4, 88, 11.4, (82, 130, 194), 0.9)
+    g.line(44, 1, 44, -15, WOOD_LO, 1.2)                                   # תורן
+    g.poly([(46, -14), (62, -1.5), (46, -1.5)], (240, 240, 246))           # מפרש
+    g.poly([(47.5, -11), (57, -3), (47.5, -3)], (216, 218, 228))
+    g.poly([(11, 0.5), (77, 0.5), (68, 11), (20, 11)], WOOD)               # גוף הסירה
+    g.poly([(12, 1.5), (76, 1.5), (74, 3.6), (14, 3.6)], WOOD_HI)
+    g.line(22, 6, 66, 6, WOOD_LO, 0.8)
+    g.poly([(11, -1), (77, -1), (77, 1), (11, 1)], (168, 116, 62))         # דופן עליונה
+    g.poly([(24, 3), (30, 3), (30, 8), (24, 8)], WOOD_LO)                  # ספסל
+
+
+TOOL_PAINTERS = {
+    "saw": paint_saw, "pickaxe": paint_pickaxe, "sickle": paint_sickle,
+    "rod": paint_rod, "torch": paint_torch, "boat": paint_boat,
+}
+
+
+def paint_potion(g, size):
+    w = 15 + size * 6
+    h = 15 + size * 5
+    left = 44 - w / 2.0
+    top = 13 - h
+    g.box(left + w / 2 - 3.4, top - 6.5, 6.8, 7, (206, 210, 220), 0.5)     # צוואר
+    g.box(left + w / 2 - 5, top - 11, 10, 5.5, (158, 112, 64), 1.4)        # פקק
+    g.box(left, top, w, h, (222, 230, 242), 3)                             # זכוכית
+    g.box(left + 1.6, top + h * 0.34, w - 3.2, h * 0.66 - 1.6, (216, 58, 70), 2.4)
+    g.box(left + 2.4, top + 2, 2.4, h - 5, (250, 252, 255), 1)             # ברק
+    cx, ccy = left + w / 2.0, top + h * 0.68                                # צלב לבן
+    g.box(cx - 1.6, ccy - 4.6, 3.2, 9.2, (255, 255, 255))
+    g.box(cx - 4.6, ccy - 1.6, 9.2, 3.2, (255, 255, 255))
+
+
+def build_icon(kind, item, size):
+    """מצייר את הפריט בהגדלה ומחזיר תמונה קטנה וחלקה."""
+    work = pygame.Surface((ICON_W * ICON_SCALE, ICON_H * ICON_SCALE), pygame.SRCALPHA)
+    painter = IconPainter(work, ICON_SCALE)
+    if kind == "weapon":
+        WEAPON_PAINTERS[item["id"]](painter)
+    elif kind == "tool":
+        TOOL_PAINTERS[item["id"]](painter)
+    else:
+        paint_potion(painter, {"small": 0, "medium": 1, "large": 2}[item["id"]])
+    return pygame.transform.smoothscale(work, size)
+
+
 class Bullet:
     def __init__(self, x, y, dx, dy, speed, dmg, acc, rng, from_player):
         self.x, self.y = x, y
@@ -139,6 +498,7 @@ class Game:
         self.font = load_font(18)
         self.font_small = load_font(14)
         self.font_big = load_font(34, bold=True)
+        self.icon_cache = {}
         self.reset_game()
 
     # ---------- מצב המשחק ----------
@@ -597,14 +957,14 @@ class Game:
         self.screen.set_clip(clip)
         for kind, item, owned in self.shop_rows():
             if kind == "header":
-                if clip.y - 34 < y < clip.bottom:
+                if clip.y - 46 < y < clip.bottom:
                     text = self.font.render(rtl(item), True, (255, 204, 102))
                     self.screen.blit(text, (panel.right - 24 - text.get_width(), y))
                 y += 30
                 continue
 
-            row = pygame.Rect(panel.x + 24, y, panel.w - 48, 34)
-            if clip.y - 34 < y < clip.bottom:
+            row = pygame.Rect(panel.x + 24, y, panel.w - 48, 46)
+            if clip.y - 46 < y < clip.bottom:
                 pygame.draw.rect(self.screen, (42, 42, 48), row, border_radius=6)
                 if kind == "weapon":
                     label = "%s   נזק %d-%d | דיוק %d%% | טווח %d" % (
@@ -616,9 +976,9 @@ class Game:
                     label = "%s   מחזירה %d חיים (יש לך %d)" % (
                         item["name"], item["heal"], self.potions[item["id"]])
                 text = self.font_small.render(rtl(label), True, COL_TEXT)
-                self.screen.blit(text, (row.right - 10 - text.get_width(), row.y + 9))
+                self.screen.blit(text, (row.right - 10 - text.get_width(), row.y + 15))
 
-                btn = pygame.Rect(row.x + 8, row.y + 6, 110, 22)
+                btn = pygame.Rect(row.x + 8, row.y + 12, 110, 22)
                 affordable = self.money >= item["price"]
                 if owned:
                     color, btn_label = (85, 85, 85), "נרכש"
@@ -629,11 +989,10 @@ class Game:
                 pygame.draw.rect(self.screen, color, btn, border_radius=5)
                 btext = self.font_small.render(rtl(btn_label), True, (255, 255, 255))
                 self.screen.blit(btext, (btn.centerx - btext.get_width() // 2, btn.y + 3))
-                if kind == "weapon":
-                    self.draw_weapon_icon(pygame.Rect(btn.right + 12, row.y + 4, 64, 26), item)
+                self.draw_item_icon(pygame.Rect(btn.right + 12, row.y + 3, 110, 40), kind, item)
                 if not owned:
                     self.shop_buttons.append((btn.copy(), kind, item))
-            y += 36
+            y += 48
         self.screen.set_clip(None)
         self.shop_max_scroll = max(0, y + self.shop_scroll - panel.bottom + 40)
 
@@ -718,58 +1077,19 @@ class Game:
         for s in self.sparks:
             pygame.draw.rect(self.screen, s[5], pygame.Rect(sx(s[0]) - 2, sy(s[1]) - 2, 4, 4))
 
-    def draw_weapon_icon(self, rect, weapon):
-        """מצייר תמונה קטנה של הנשק לפי הקטגוריה שלו (תיבה של 64x26)."""
-        screen = self.screen
-        x = rect.x
-        cy = rect.y + rect.h // 2
-        cat = weapon["cat"]
-        metal = (204, 206, 214)
-        dark = (74, 74, 84)
-        wood = (150, 100, 54)
-        pygame.draw.rect(screen, (22, 22, 26), rect, border_radius=4)
+    # ---------- ציורים של הנשקים והכלים ----------
+    def icon_surface(self, kind, item, size):
+        key = (kind, item["id"], size)
+        if key not in self.icon_cache:
+            self.icon_cache[key] = build_icon(kind, item, size)
+        return self.icon_cache[key]
 
-        if cat == "אקדחים":
-            pygame.draw.rect(screen, metal, pygame.Rect(x + 14, cy - 9, 36, 8), border_radius=2)
-            pygame.draw.rect(screen, dark, pygame.Rect(x + 48, cy - 7, 6, 4))
-            pygame.draw.polygon(screen, (124, 86, 60),
-                                [(x + 21, cy - 1), (x + 32, cy - 1), (x + 28, cy + 11), (x + 17, cy + 11)])
-            pygame.draw.arc(screen, dark, pygame.Rect(x + 30, cy - 2, 14, 12), 3.5, 6.0, 2)
-        elif cat == "תתי מקלע":
-            pygame.draw.rect(screen, dark, pygame.Rect(x + 2, cy - 4, 12, 6), border_radius=2)
-            pygame.draw.rect(screen, metal, pygame.Rect(x + 13, cy - 8, 28, 9), border_radius=2)
-            pygame.draw.rect(screen, dark, pygame.Rect(x + 40, cy - 5, 18, 5))
-            pygame.draw.rect(screen, (136, 136, 146), pygame.Rect(x + 21, cy + 1, 8, 12), border_radius=1)
-            pygame.draw.polygon(screen, (116, 116, 126),
-                                [(x + 31, cy + 1), (x + 38, cy + 1), (x + 36, cy + 10), (x + 30, cy + 10)])
-        elif cat == "רובי סער":
-            pygame.draw.polygon(screen, wood,
-                                [(x + 1, cy - 6), (x + 13, cy - 7), (x + 13, cy + 3), (x + 1, cy + 4)])
-            pygame.draw.rect(screen, metal, pygame.Rect(x + 12, cy - 7, 30, 8), border_radius=2)
-            pygame.draw.rect(screen, dark, pygame.Rect(x + 41, cy - 4, 21, 4))
-            pygame.draw.rect(screen, dark, pygame.Rect(x + 53, cy - 9, 3, 6))
-            pygame.draw.polygon(screen, (120, 120, 132),
-                                [(x + 21, cy + 1), (x + 29, cy + 1), (x + 33, cy + 13), (x + 25, cy + 13)])
-            pygame.draw.rect(screen, dark, pygame.Rect(x + 30, cy - 11, 5, 4))
-        elif cat == "מקלעים כבדים":
-            pygame.draw.rect(screen, dark, pygame.Rect(x + 6, cy - 9, 34, 13), border_radius=2)
-            pygame.draw.rect(screen, metal, pygame.Rect(x + 39, cy - 6, 23, 7))
-            for i in range(5):
-                pygame.draw.line(screen, (46, 46, 54),
-                                 (x + 42 + i * 4, cy - 6), (x + 42 + i * 4, cy + 1), 1)
-            pygame.draw.rect(screen, (168, 142, 66), pygame.Rect(x + 9, cy + 4, 18, 9), border_radius=1)
-            pygame.draw.line(screen, (126, 126, 138), (x + 40, cy + 4), (x + 34, cy + 13), 2)
-            pygame.draw.line(screen, (126, 126, 138), (x + 40, cy + 4), (x + 46, cy + 13), 2)
-        else:  # רובי צלפים
-            pygame.draw.polygon(screen, wood,
-                                [(x + 1, cy - 4), (x + 14, cy - 5), (x + 14, cy + 5), (x + 5, cy + 9)])
-            pygame.draw.rect(screen, metal, pygame.Rect(x + 12, cy - 4, 32, 6), border_radius=2)
-            pygame.draw.rect(screen, dark, pygame.Rect(x + 43, cy - 3, 19, 4))
-            pygame.draw.rect(screen, (66, 126, 96), pygame.Rect(x + 20, cy - 13, 24, 8), border_radius=3)
-            pygame.draw.line(screen, dark, (x + 24, cy - 5), (x + 24, cy - 3), 3)
-            pygame.draw.line(screen, dark, (x + 39, cy - 5), (x + 39, cy - 3), 3)
-            pygame.draw.line(screen, (126, 126, 138), (x + 34, cy + 2), (x + 30, cy + 11), 2)
-            pygame.draw.line(screen, (126, 126, 138), (x + 34, cy + 2), (x + 38, cy + 11), 2)
+    def draw_item_icon(self, rect, kind, item):
+        pygame.draw.rect(self.screen, (24, 24, 28), rect, border_radius=4)
+        self.screen.blit(self.icon_surface(kind, item, (rect.w, rect.h)), rect.topleft)
+
+    def draw_weapon_icon(self, rect, weapon):
+        self.draw_item_icon(rect, "weapon", weapon)
 
     def inspect_enemy_at(self, pos):
         """לחיצת עכבר על אויב - מראה איזה נשק יש לו."""
@@ -792,8 +1112,8 @@ class Game:
                 w["dmg"][0], w["dmg"][1], round(w["acc"] * 100), w["rng"])), True, COL_TEXT),
             self.font_small.render(rtl("חיים: %d/%d" % (round(e.hp), e.max_hp)), True, (255, 168, 168)),
         ]
-        width = max(t.get_width() for t in lines) + 64 + 28
-        height = 64
+        width = max(t.get_width() for t in lines) + 110 + 30
+        height = 76
         bx = int(e.x - self.cam_x) - width // 2
         by = int(e.y - self.cam_y) - e.r - height - 10
         bx = max(6, min(SCREEN_W - width - 6, bx))
@@ -801,9 +1121,9 @@ class Game:
         box = pygame.Rect(bx, by, width, height)
         pygame.draw.rect(self.screen, (26, 26, 32), box, border_radius=7)
         pygame.draw.rect(self.screen, (198, 92, 92), box, 2, border_radius=7)
-        self.draw_weapon_icon(pygame.Rect(box.x + 10, box.y + 11, 64, 26), w)
+        self.draw_weapon_icon(pygame.Rect(box.x + 10, box.y + 18, 110, 40), w)
         for i, text in enumerate(lines):
-            self.screen.blit(text, (box.right - 10 - text.get_width(), box.y + 7 + i * 17))
+            self.screen.blit(text, (box.right - 10 - text.get_width(), box.y + 12 + i * 17))
 
     def draw_bar(self, cx, y, w, ratio, color):
         ratio = max(0.0, min(1.0, ratio))
