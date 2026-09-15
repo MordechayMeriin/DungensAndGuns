@@ -80,6 +80,7 @@ RESOURCE_WEIGHTS = [RESOURCE_TYPES[k]["weight"] for k in RESOURCE_KINDS]
 
 
 LATIN_RUN = re.compile(r"[A-Za-z0-9][A-Za-z0-9\-\./+%]*(?: [A-Za-z0-9\-\./+%]+)*")
+MIRRORED = {"(": ")", ")": "(", "[": "]", "]": "[", "{": "}", "}": "{", "<": ">", ">": "<"}
 
 
 def rtl(text):
@@ -93,7 +94,8 @@ def rtl(text):
         idx = match.end()
     if idx < len(text):
         parts.append(("he", text[idx:]))
-    return "".join(s if kind == "latin" else s[::-1] for kind, s in reversed(parts))
+    return "".join(s if kind == "latin" else "".join(MIRRORED.get(c, c) for c in reversed(s))
+                   for kind, s in reversed(parts))
 
 
 def load_font(size, bold=False):
@@ -156,6 +158,10 @@ class Game:
         self.message_timer = 0
         self.last_shot = 0
         self.last_interact = 0
+        self.inspect = None
+        self.inspect_until = 0
+        self.cam_x = 0.0
+        self.cam_y = 0.0
         self.build_level()
 
     def build_level(self):
@@ -197,6 +203,7 @@ class Game:
                        for (tx, ty) in take(3 + self.level // 2)]
 
         self.fish_cooldown = {}
+        self.inspect = None
         self.place_water(free)
 
         self.bullets = []
@@ -590,14 +597,14 @@ class Game:
         self.screen.set_clip(clip)
         for kind, item, owned in self.shop_rows():
             if kind == "header":
-                if clip.y - 30 < y < clip.bottom:
+                if clip.y - 34 < y < clip.bottom:
                     text = self.font.render(rtl(item), True, (255, 204, 102))
                     self.screen.blit(text, (panel.right - 24 - text.get_width(), y))
                 y += 30
                 continue
 
-            row = pygame.Rect(panel.x + 24, y, panel.w - 48, 30)
-            if clip.y - 30 < y < clip.bottom:
+            row = pygame.Rect(panel.x + 24, y, panel.w - 48, 34)
+            if clip.y - 34 < y < clip.bottom:
                 pygame.draw.rect(self.screen, (42, 42, 48), row, border_radius=6)
                 if kind == "weapon":
                     label = "%s   נזק %d-%d | דיוק %d%% | טווח %d" % (
@@ -609,9 +616,9 @@ class Game:
                     label = "%s   מחזירה %d חיים (יש לך %d)" % (
                         item["name"], item["heal"], self.potions[item["id"]])
                 text = self.font_small.render(rtl(label), True, COL_TEXT)
-                self.screen.blit(text, (row.right - 10 - text.get_width(), row.y + 7))
+                self.screen.blit(text, (row.right - 10 - text.get_width(), row.y + 9))
 
-                btn = pygame.Rect(row.x + 8, row.y + 4, 110, 22)
+                btn = pygame.Rect(row.x + 8, row.y + 6, 110, 22)
                 affordable = self.money >= item["price"]
                 if owned:
                     color, btn_label = (85, 85, 85), "נרכש"
@@ -622,9 +629,11 @@ class Game:
                 pygame.draw.rect(self.screen, color, btn, border_radius=5)
                 btext = self.font_small.render(rtl(btn_label), True, (255, 255, 255))
                 self.screen.blit(btext, (btn.centerx - btext.get_width() // 2, btn.y + 3))
+                if kind == "weapon":
+                    self.draw_weapon_icon(pygame.Rect(btn.right + 12, row.y + 4, 64, 26), item)
                 if not owned:
                     self.shop_buttons.append((btn.copy(), kind, item))
-            y += 32
+            y += 36
         self.screen.set_clip(None)
         self.shop_max_scroll = max(0, y + self.shop_scroll - panel.bottom + 40)
 
@@ -639,6 +648,8 @@ class Game:
             cam_y = -(SCREEN_H - world_h) / 2
         else:
             cam_y = max(0, min(self.py - SCREEN_H / 2, world_h - SCREEN_H))
+
+        self.cam_x, self.cam_y = cam_x, cam_y
 
         def sx(x):
             return int(x - cam_x)
@@ -679,8 +690,8 @@ class Game:
             ready = res["ready_at"] <= self.now()
             color = info["color"] if ready else tuple(c // 2 for c in info["color"])
             cx, cy = sx(res["x"]), sy(res["y"])
-            pygame.draw.circle(self.screen, color, (cx, cy), 12)
-            pygame.draw.circle(self.screen, (16, 16, 20), (cx, cy), 12, 1)
+            pygame.draw.circle(self.screen, color, (cx, cy), 13)
+            pygame.draw.circle(self.screen, (16, 16, 20), (cx, cy), 13, 1)
             text_col = (20, 20, 24) if sum(color) > 420 else (245, 245, 245)
             mark = self.font_small.render(rtl(info["mark"]), True, text_col)
             self.screen.blit(mark, (cx - mark.get_width() // 2, cy - mark.get_height() // 2))
@@ -706,6 +717,93 @@ class Game:
 
         for s in self.sparks:
             pygame.draw.rect(self.screen, s[5], pygame.Rect(sx(s[0]) - 2, sy(s[1]) - 2, 4, 4))
+
+    def draw_weapon_icon(self, rect, weapon):
+        """מצייר תמונה קטנה של הנשק לפי הקטגוריה שלו (תיבה של 64x26)."""
+        screen = self.screen
+        x = rect.x
+        cy = rect.y + rect.h // 2
+        cat = weapon["cat"]
+        metal = (204, 206, 214)
+        dark = (74, 74, 84)
+        wood = (150, 100, 54)
+        pygame.draw.rect(screen, (22, 22, 26), rect, border_radius=4)
+
+        if cat == "אקדחים":
+            pygame.draw.rect(screen, metal, pygame.Rect(x + 14, cy - 9, 36, 8), border_radius=2)
+            pygame.draw.rect(screen, dark, pygame.Rect(x + 48, cy - 7, 6, 4))
+            pygame.draw.polygon(screen, (124, 86, 60),
+                                [(x + 21, cy - 1), (x + 32, cy - 1), (x + 28, cy + 11), (x + 17, cy + 11)])
+            pygame.draw.arc(screen, dark, pygame.Rect(x + 30, cy - 2, 14, 12), 3.5, 6.0, 2)
+        elif cat == "תתי מקלע":
+            pygame.draw.rect(screen, dark, pygame.Rect(x + 2, cy - 4, 12, 6), border_radius=2)
+            pygame.draw.rect(screen, metal, pygame.Rect(x + 13, cy - 8, 28, 9), border_radius=2)
+            pygame.draw.rect(screen, dark, pygame.Rect(x + 40, cy - 5, 18, 5))
+            pygame.draw.rect(screen, (136, 136, 146), pygame.Rect(x + 21, cy + 1, 8, 12), border_radius=1)
+            pygame.draw.polygon(screen, (116, 116, 126),
+                                [(x + 31, cy + 1), (x + 38, cy + 1), (x + 36, cy + 10), (x + 30, cy + 10)])
+        elif cat == "רובי סער":
+            pygame.draw.polygon(screen, wood,
+                                [(x + 1, cy - 6), (x + 13, cy - 7), (x + 13, cy + 3), (x + 1, cy + 4)])
+            pygame.draw.rect(screen, metal, pygame.Rect(x + 12, cy - 7, 30, 8), border_radius=2)
+            pygame.draw.rect(screen, dark, pygame.Rect(x + 41, cy - 4, 21, 4))
+            pygame.draw.rect(screen, dark, pygame.Rect(x + 53, cy - 9, 3, 6))
+            pygame.draw.polygon(screen, (120, 120, 132),
+                                [(x + 21, cy + 1), (x + 29, cy + 1), (x + 33, cy + 13), (x + 25, cy + 13)])
+            pygame.draw.rect(screen, dark, pygame.Rect(x + 30, cy - 11, 5, 4))
+        elif cat == "מקלעים כבדים":
+            pygame.draw.rect(screen, dark, pygame.Rect(x + 6, cy - 9, 34, 13), border_radius=2)
+            pygame.draw.rect(screen, metal, pygame.Rect(x + 39, cy - 6, 23, 7))
+            for i in range(5):
+                pygame.draw.line(screen, (46, 46, 54),
+                                 (x + 42 + i * 4, cy - 6), (x + 42 + i * 4, cy + 1), 1)
+            pygame.draw.rect(screen, (168, 142, 66), pygame.Rect(x + 9, cy + 4, 18, 9), border_radius=1)
+            pygame.draw.line(screen, (126, 126, 138), (x + 40, cy + 4), (x + 34, cy + 13), 2)
+            pygame.draw.line(screen, (126, 126, 138), (x + 40, cy + 4), (x + 46, cy + 13), 2)
+        else:  # רובי צלפים
+            pygame.draw.polygon(screen, wood,
+                                [(x + 1, cy - 4), (x + 14, cy - 5), (x + 14, cy + 5), (x + 5, cy + 9)])
+            pygame.draw.rect(screen, metal, pygame.Rect(x + 12, cy - 4, 32, 6), border_radius=2)
+            pygame.draw.rect(screen, dark, pygame.Rect(x + 43, cy - 3, 19, 4))
+            pygame.draw.rect(screen, (66, 126, 96), pygame.Rect(x + 20, cy - 13, 24, 8), border_radius=3)
+            pygame.draw.line(screen, dark, (x + 24, cy - 5), (x + 24, cy - 3), 3)
+            pygame.draw.line(screen, dark, (x + 39, cy - 5), (x + 39, cy - 3), 3)
+            pygame.draw.line(screen, (126, 126, 138), (x + 34, cy + 2), (x + 30, cy + 11), 2)
+            pygame.draw.line(screen, (126, 126, 138), (x + 34, cy + 2), (x + 38, cy + 11), 2)
+
+    def inspect_enemy_at(self, pos):
+        """לחיצת עכבר על אויב - מראה איזה נשק יש לו."""
+        wx, wy = pos[0] + self.cam_x, pos[1] + self.cam_y
+        for e in self.enemies:
+            if math.hypot(wx - e.x, wy - e.y) <= e.r + 8:
+                self.inspect = e
+                self.inspect_until = self.now() + 5000
+                return
+        self.inspect = None
+
+    def draw_inspect(self):
+        e = self.inspect
+        if e is None or e not in self.enemies or self.inspect_until < self.now():
+            return
+        w = e.weapon
+        lines = [
+            self.font_small.render(rtl("%s - %s" % (w["name"], w["cat"])), True, (255, 226, 150)),
+            self.font_small.render(rtl("נזק %d-%d | דיוק %d%% | טווח %d" % (
+                w["dmg"][0], w["dmg"][1], round(w["acc"] * 100), w["rng"])), True, COL_TEXT),
+            self.font_small.render(rtl("חיים: %d/%d" % (round(e.hp), e.max_hp)), True, (255, 168, 168)),
+        ]
+        width = max(t.get_width() for t in lines) + 64 + 28
+        height = 64
+        bx = int(e.x - self.cam_x) - width // 2
+        by = int(e.y - self.cam_y) - e.r - height - 10
+        bx = max(6, min(SCREEN_W - width - 6, bx))
+        by = max(40, by)
+        box = pygame.Rect(bx, by, width, height)
+        pygame.draw.rect(self.screen, (26, 26, 32), box, border_radius=7)
+        pygame.draw.rect(self.screen, (198, 92, 92), box, 2, border_radius=7)
+        self.draw_weapon_icon(pygame.Rect(box.x + 10, box.y + 11, 64, 26), w)
+        for i, text in enumerate(lines):
+            self.screen.blit(text, (box.right - 10 - text.get_width(), box.y + 7 + i * 17))
 
     def draw_bar(self, cx, y, w, ratio, color):
         ratio = max(0.0, min(1.0, ratio))
@@ -740,7 +838,7 @@ class Game:
             self.screen.blit(text, (box.x + 12, box.y + 5))
 
         help_text = self.font_small.render(
-            rtl("חצים = תזוזה | רווח = ירי | Ctrl = איסוף/תרופה | Shift = חנות | 1-9 = החלפת נשק"),
+            rtl("חצים = תזוזה | רווח = ירי | Ctrl = איסוף/תרופה | Shift = חנות | 1-9 = נשק | קליק על אויב = מה הנשק שלו"),
             True, (150, 150, 150))
         self.screen.blit(help_text, (SCREEN_W // 2 - help_text.get_width() // 2, SCREEN_H - 22))
 
@@ -785,11 +883,14 @@ class Game:
                             self.weapon_index = idx
                 elif event.type == pygame.MOUSEWHEEL and self.shop_open:
                     self.shop_scroll = max(0, min(self.shop_max_scroll, self.shop_scroll - event.y * 40))
-                elif event.type == pygame.MOUSEBUTTONDOWN and self.shop_open and event.button == 1:
-                    for rect, kind, item in self.shop_buttons:
-                        if rect.collidepoint(event.pos):
-                            self.buy(kind, item)
-                            break
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    if self.shop_open:
+                        for rect, kind, item in self.shop_buttons:
+                            if rect.collidepoint(event.pos):
+                                self.buy(kind, item)
+                                break
+                    elif not self.game_over:
+                        self.inspect_enemy_at(event.pos)
 
             if not self.game_over and not self.shop_open:
                 self.update_player(pygame.key.get_pressed())
@@ -799,6 +900,7 @@ class Game:
                 self.check_exit()
 
             self.draw_world()
+            self.draw_inspect()
             self.draw_hud()
             if self.shop_open:
                 self.draw_shop()
