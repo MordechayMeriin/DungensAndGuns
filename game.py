@@ -113,6 +113,33 @@ def load_font(size, bold=False):
 
 ICON_W, ICON_H, ICON_SCALE = 88, 32, 4
 
+# תיקיית התצלומים האמיתיים. אם קובץ חסר - המשחק מצייר את הפריט בעצמו.
+IMAGE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "images")
+PHOTOS = {}
+
+
+def load_photo(item_id):
+    if item_id not in PHOTOS:
+        path = os.path.join(IMAGE_DIR, "%s.png" % item_id)
+        image = None
+        if os.path.exists(path):
+            try:
+                image = pygame.image.load(path).convert_alpha()
+            except pygame.error:
+                image = None
+        PHOTOS[item_id] = image
+    return PHOTOS[item_id]
+
+
+def fit_image(image, size):
+    """מקטין תמונה כך שתיכנס לתיבה בלי להימתח, וממרכז אותה."""
+    out = pygame.Surface(size, pygame.SRCALPHA)
+    k = min(size[0] / image.get_width(), size[1] / image.get_height())
+    scaled = pygame.transform.smoothscale(
+        image, (max(1, int(image.get_width() * k)), max(1, int(image.get_height() * k))))
+    out.blit(scaled, ((size[0] - scaled.get_width()) // 2, (size[1] - scaled.get_height()) // 2))
+    return out
+
 STEEL = (186, 190, 202)
 STEEL_HI = (224, 228, 238)
 STEEL_LO = (126, 130, 142)
@@ -454,7 +481,10 @@ def paint_potion(g, size):
 
 
 def build_icon(kind, item, size):
-    """מצייר את הפריט בהגדלה ומחזיר תמונה קטנה וחלקה."""
+    """מחזיר תצלום אמיתי של הפריט אם יש, ואחרת מצייר אותו."""
+    photo = load_photo(item["id"])
+    if photo is not None:
+        return fit_image(photo, size)
     work = pygame.Surface((ICON_W * ICON_SCALE, ICON_H * ICON_SCALE), pygame.SRCALPHA)
     painter = IconPainter(work, ICON_SCALE)
     if kind == "weapon":
@@ -715,6 +745,11 @@ class Game:
         if self.now() - self.last_interact < 250:
             return
 
+        if self.at_exit():
+            self.last_interact = self.now()
+            self.leave_level()
+            return
+
         res = self.nearest_resource()
         if res is not None:
             self.last_interact = self.now()
@@ -805,6 +840,8 @@ class Game:
 
     def interact_hint(self):
         """שורת עזרה קטנה שמראה מה אפשר לעשות במקום שבו אתה עומד."""
+        if self.at_exit():
+            return "Ctrl = מעבר לשלב הבא"
         res = self.nearest_resource()
         if res is not None:
             info = RESOURCE_TYPES[res["kind"]]
@@ -894,13 +931,15 @@ class Game:
             s[4] -= 1
         self.sparks = [s for s in self.sparks if s[4] > 0]
 
-    def check_exit(self):
+    def at_exit(self):
         ex = self.exit_tile[0] * TILE + TILE / 2
         ey = self.exit_tile[1] * TILE + TILE / 2
-        if math.hypot(self.px - ex, self.py - ey) < 22:
-            self.level += 1
-            self.build_level()
-            self.say("סיימת את השלב! עובר לשלב %d" % self.level)
+        return math.hypot(self.px - ex, self.py - ey) < 24
+
+    def leave_level(self):
+        self.level += 1
+        self.build_level()
+        self.say("סיימת את השלב! עובר לשלב %d" % self.level)
 
     # ---------- חנות ----------
     def shop_rows(self):
@@ -1041,8 +1080,16 @@ class Game:
                     pygame.draw.rect(self.screen, COL_FLOOR_A if (gx + gy) % 2 == 0 else COL_FLOOR_B, rect)
 
         ex, ey = self.exit_tile
-        pygame.draw.rect(self.screen, COL_EXIT,
-                         pygame.Rect(sx(ex * TILE + 4), sy(ey * TILE + 4), TILE - 8, TILE - 8), border_radius=4)
+        gate = pygame.Rect(sx(ex * TILE + 2), sy(ey * TILE + 2), TILE - 4, TILE - 4)
+        pygame.draw.rect(self.screen, (62, 52, 20), gate, border_radius=4)          # פתח פתוח
+        pygame.draw.rect(self.screen, COL_EXIT, gate, 3, border_radius=4)           # מסגרת
+        bright = math.sin(self.now() / 260.0) > 0
+        arrow = (255, 236, 140) if bright else COL_EXIT
+        acx, acy = gate.centerx, gate.centery
+        pygame.draw.polygon(self.screen, arrow,
+                            [(acx, acy - 9), (acx - 8, acy - 1), (acx - 3, acy - 1),
+                             (acx - 3, acy + 8), (acx + 3, acy + 8), (acx + 3, acy - 1),
+                             (acx + 8, acy - 1)])
 
         for res in self.resources:
             info = RESOURCE_TYPES[res["kind"]]
@@ -1158,7 +1205,7 @@ class Game:
             self.screen.blit(text, (box.x + 12, box.y + 5))
 
         help_text = self.font_small.render(
-            rtl("חצים = תזוזה | רווח = ירי | Ctrl = איסוף/תרופה | Shift = חנות | 1-9 = נשק | קליק על אויב = מה הנשק שלו"),
+            rtl("חצים = תזוזה | רווח = ירי | Ctrl = איסוף/תרופה/סיום שלב | Shift = חנות | 1-9 = נשק | קליק על אויב = הנשק שלו"),
             True, (150, 150, 150))
         self.screen.blit(help_text, (SCREEN_W // 2 - help_text.get_width() // 2, SCREEN_H - 22))
 
@@ -1217,7 +1264,6 @@ class Game:
                 self.update_enemies()
                 self.update_bullets()
                 self.update_sparks()
-                self.check_exit()
 
             self.draw_world()
             self.draw_inspect()
