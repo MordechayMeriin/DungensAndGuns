@@ -23,6 +23,11 @@ COL_CRATE = (138, 90, 42)
 COL_WATER = (36, 84, 148)
 COL_WATER_ALT = (42, 96, 164)
 COL_TEXT = (235, 235, 235)
+# מד החיים מחליף צבע כל 25 אחוז: ירוק, צהוב, כתום, אדום
+COL_HP_GREEN = (62, 207, 62)
+COL_HP_YELLOW = (226, 214, 62)
+COL_HP_ORANGE = (234, 148, 46)
+COL_HP_RED = (226, 56, 56)
 COL_PANEL = (30, 30, 34)
 COL_PANEL_LINE = (100, 100, 110)
 
@@ -178,6 +183,17 @@ def rtl(text):
         parts.append(("he", text[idx:]))
     return "".join(s if kind == "latin" else "".join(MIRRORED.get(c, c) for c in reversed(s))
                    for kind, s in reversed(parts))
+
+
+def hp_color(ratio):
+    """ירוק מעל 75%, צהוב מעל 50%, כתום מעל 25%, ואדום מתחת."""
+    if ratio > 0.75:
+        return COL_HP_GREEN
+    if ratio > 0.5:
+        return COL_HP_YELLOW
+    if ratio > 0.25:
+        return COL_HP_ORANGE
+    return COL_HP_RED
 
 
 def load_font(size, bold=False):
@@ -851,6 +867,9 @@ class Game:
         self.last_potion = 0
         self.swing_until = 0
         self.swing_reach = 40
+        self.sick = False
+        self.sick_tick = 0
+        self.sick_nag = 0
         self.inspect = None
         self.inspect_until = 0
         self.cam_x = 0.0
@@ -1071,6 +1090,8 @@ class Game:
 
         acc_bonus, rng_bonus = self.aim_bonus()
         acc = min(0.99, w["acc"] + acc_bonus)
+        if self.hp / self.max_hp <= 0.25:
+            acc *= 0.8                      # מד חיים אדום - קשה יותר לכוון
         rng = w["rng"] * (1.0 + rng_bonus)
         speed = w.get("speed", 9)
         pellets = w.get("pellets", 1)
@@ -1112,6 +1133,20 @@ class Game:
             self.px, self.py, self.dir[0], self.dir[1], 6.0 * boost, w,
             self.now() + 900, w["rng"] * boost,
             w["radius"] * (1.4 if self.gear["launcher"] else 1.0)))
+
+    def update_sick(self):
+        """המחלה מורידה חיים כל כמה שניות עד ששותים תרופה גדולה."""
+        if not self.sick or self.game_over:
+            return
+        if self.now() - self.sick_tick > 1800:
+            self.sick_tick = self.now()
+            self.hp -= 2
+            if self.hp <= 0:
+                self.hp = 0
+                self.game_over = True
+        if self.now() - self.sick_nag > 7000:
+            self.sick_nag = self.now()
+            self.say("אתה חולה! שתה תרופה גדולה (T)")
 
     def update_grenades(self):
         for gr in self.grenades:
@@ -1218,17 +1253,26 @@ class Game:
         """T - שותה את התרופה הגדולה ביותר שיש, רק אם חסרים חיים."""
         if self.now() - self.last_potion < 350:
             return
-        if self.hp >= self.max_hp:
+        if self.hp >= self.max_hp and not self.sick:
             self.last_potion = self.now()
             self.say("החיים שלך מלאים")
             return
-        for pid in ("large", "medium", "small"):
+        order = ("large", "medium", "small") if not self.sick else ("large",)
+        if self.sick and self.potions["large"] <= 0:
+            self.last_potion = self.now()
+            self.say("אתה חולה - רק תרופה גדולה תעזור, וקנית רק קטנות")
+            return
+        for pid in order:
             if self.potions[pid] > 0:
                 self.last_potion = self.now()
                 potion = next(p for p in POTIONS if p["id"] == pid)
                 self.potions[pid] -= 1
                 self.hp = min(self.max_hp, self.hp + potion["heal"])
-                self.say("שתית %s! +%d חיים" % (potion["name"], potion["heal"]))
+                if pid == "large" and self.sick:
+                    self.sick = False
+                    self.say("שתית תרופה גדולה, הבראת מהמחלה! +%d חיים" % potion["heal"])
+                else:
+                    self.say("שתית %s! +%d חיים" % (potion["name"], potion["heal"]))
                 return
         self.last_potion = self.now()
         self.say("אין לך תרופות - קנה בחנות!")
@@ -1265,6 +1309,11 @@ class Game:
                 self.say("כרית בהר הגעש! +%d כסף אבל נכווית (-10 חיים)" % gain)
             else:
                 self.say("כרית אבן געש! +%d כסף" % gain)
+        elif res["kind"] == "cow" and not self.sick and random.random() < 0.2:
+            self.sick = True
+            self.sick_tick = self.now()
+            self.sick_nag = self.now()
+            self.say("נדבקת ממחלה מהפרה! רק תרופה גדולה תרפא אותך")
         else:
             self.say("אספת %s! +%d כסף" % (info["name"], gain))
 
@@ -1592,7 +1641,10 @@ class Game:
         pygame.draw.circle(self.screen, color, (sx(self.px), sy(self.py)), 11)
         pygame.draw.circle(self.screen, (255, 255, 255),
                            (sx(self.px + self.dir[0] * 10), sy(self.py + self.dir[1] * 10)), 3)
-        self.draw_bar(sx(self.px), sy(self.py) - 24, 30, self.hp / self.max_hp, (62, 207, 62))
+        ratio = self.hp / self.max_hp
+        self.draw_bar(sx(self.px), sy(self.py) - 24, 30, ratio, hp_color(ratio))
+        if self.sick:
+            pygame.draw.circle(self.screen, (120, 210, 120), (sx(self.px), sy(self.py)), 15, 2)
 
         for b in self.bullets:
             pygame.draw.circle(self.screen, (255, 224, 102) if b.from_player else (255, 102, 102),
@@ -1685,8 +1737,9 @@ class Game:
     def draw_hud(self):
         bar = pygame.Rect(0, 0, SCREEN_W, 34)
         pygame.draw.rect(self.screen, (18, 18, 22), bar)
+        ratio = self.hp / self.max_hp
         parts = [
-            "חיים: %d/%d" % (round(self.hp), self.max_hp),
+            ("חיים: %d/%d" % (round(self.hp), self.max_hp), hp_color(ratio)),
             "כסף: %d" % self.money,
             "נשק: %s (%d/%d)" % (self.weapon()["name"], self.weapon_index + 1,
                                  len(self.owned_weapons)),
@@ -1694,9 +1747,14 @@ class Game:
             "תרופות: %d" % sum(self.potions.values()),
             "רימונים: %d" % sum(self.ammo.values()),
         ]
+        if self.sick:
+            parts.insert(1, ("חולה!", (120, 220, 120)))
+        if ratio <= 0.25:
+            parts.insert(1, ("דיוק -20%", COL_HP_RED))
         x = SCREEN_W - 14
         for part in parts:
-            text = self.font.render(rtl(part), True, COL_TEXT)
+            label, color = part if isinstance(part, tuple) else (part, COL_TEXT)
+            text = self.font.render(rtl(label), True, color)
             x -= text.get_width()
             self.screen.blit(text, (x, 7))
             x -= 26
@@ -1780,6 +1838,7 @@ class Game:
                 self.update_player(pygame.key.get_pressed())
                 self.update_enemies()
                 self.update_bullets()
+                self.update_sick()
                 self.update_grenades()
                 self.update_smokes()
                 self.update_sparks()
