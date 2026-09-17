@@ -1,40 +1,20 @@
 # קרדיטים לתמונות
 
-התמונות של כלי הנשק והכלים הורדו מוויקימדיה קומונס (Wikimedia Commons),
-הוקטנו והרקע שלהן הוסר. כל תמונה נשארת ברישיון המקורי שלה:
+התצלומים של כלי הנשק והכלים הורדו מוויקימדיה קומונס (Wikimedia Commons),
+הוקטנו והרקע שלהם הוסר. כל תמונה נשארת ברישיון המקורי שלה:
 
-- **glock** - File:Glock 19 (transparent background).jpg
-  - צלם/יוצר: U.S. Bureau of Alcohol, Tobacco, Firearms and Explosives
-  - רישיון: Public domain  None
-  - מקור: https://commons.wikimedia.org/wiki/File:Glock_19_(transparent_background).jpg
-- **p226** - File:SIG Sauer P226.jpg
-  - צלם/יוצר: user:Rama, cropped and retouched by user:Atirador.
-  - רישיון: CC BY-SA 2.0 fr  https://creativecommons.org/licenses/by-sa/2.0/fr/deed.en
-  - מקור: https://commons.wikimedia.org/wiki/File:SIG_Sauer_P226.jpg
-- **uzi** - File:Uzi-nobg.png
-  - צלם/יוצר: John Torch II
-  - רישיון: CC0  http://creativecommons.org/publicdomain/zero/1.0/deed.en
-  - מקור: https://commons.wikimedia.org/wiki/File:Uzi-nobg.png
-- **mp5** - File:HK MP5 noBG.png
-  - צלם/יוצר: Dybdal / Mattes
-  - רישיון: CC BY-SA 3.0  https://creativecommons.org/licenses/by-sa/3.0
-  - מקור: https://commons.wikimedia.org/wiki/File:HK_MP5_noBG.png
-- **m16** - File:M16A1 rifle.jpg
-  - צלם/יוצר: U.S. Marine Corps photo illustration by Sgt. James Stanfield
-  - רישיון: Public domain  None
-  - מקור: https://commons.wikimedia.org/wiki/File:M16A1_rifle.jpg
 - **ak47** - File:AK-47 assault rifle.jpg
   - צלם/יוצר: Ickybicky at en.wikipedia
   - רישיון: Public domain  None
   - מקור: https://commons.wikimedia.org/wiki/File:AK-47_assault_rifle.jpg
-- **m249** - File:PEO M249 Para ACOG.jpg
-  - צלם/יוצר: Photo Courtesy of PEO Soldier
-  - רישיון: Public domain  None
-  - מקור: https://commons.wikimedia.org/wiki/File:PEO_M249_Para_ACOG.jpg
-- **m2** - File:M2 machine gun at Musee de l Armee-IMG 7566-white.jpg
-  - צלם/יוצר: Rama
-  - רישיון: CC BY-SA 3.0 fr  https://creativecommons.org/licenses/by-sa/3.0/fr/deed.en
-  - מקור: https://commons.wikimedia.org/wiki/File:M2_machine_gun_at_Musee_de_l_Armee-IMG_7566-white.jpg
+- **akm** - File:AKM RIFLE.png
+  - צלם/יוצר: Ausiecapta
+  - רישיון: CC BY-SA 3.0  https://creativecommons.org/licenses/by-sa/3.0
+  - מקור: https://commons.wikimedia.org/wiki/File:AKM_RIFLE.png
+- **aks47** - File:AK-47 type II noBG.png
+  - צלם/יוצר: User:Nemo5576
+  - רישיון: CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
+  - מקור: https://commons.wikimedia.org/wiki/File:AK-47_type_II_noBG.png
 - **awp** - File:Accuracy International Arctic Warfare - Psg 90 G24.png
   - צלם/יוצר: Mr Bullitt
   - רישיון: CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
@@ -43,13 +23,134 @@
   - צלם/יוצר: Anynobody
   - רישיון: CC BY-SA 3.0  https://creativecommons.org/licenses/by-sa/3.0
   - מקור: https://commons.wikimedia.org/wiki/File:M82.png
+- **beretta** - File:Beretta 950bs.jpg
+  - צלם/יוצר: Everett Walker
+  - רישיון: CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
+  - מקור: https://commons.wikimedia.org/wiki/File:Beretta_950bs.jpg
+- **cz75** - File:CZ75D.jpg
+  - צלם/יוצר: Pibwl
+  - רישיון: CC BY-SA 3.0  https://creativecommons.org/licenses/by-sa/3.0
+  - מקור: https://commons.wikimedia.org/wiki/File:CZ75D.jpg
+- **czp** - File:CZ P-10 Family.jpg
+  - צלם/יוצר: Land68
+  - רישיון: CC0  http://creativecommons.org/publicdomain/zero/1.0/deed.en
+  - מקור: https://commons.wikimedia.org/wiki/File:CZ_P-10_Family.jpg
+- **dragunov** - File:SVD Dragunov.jpg
+  - צלם/יוצר: Hokos
+  - רישיון: CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
+  - מקור: https://commons.wikimedia.org/wiki/File:SVD_Dragunov.jpg
+- **glock** - File:Glock 19 (transparent background).jpg
+  - צלם/יוצר: U.S. Bureau of Alcohol, Tobacco, Firearms and Explosives
+  - רישיון: Public domain  None
+  - מקור: https://commons.wikimedia.org/wiki/File:Glock_19_(transparent_background).jpg
+- **glock17** - File:Glock 17 (transparent background).jpg
+  - צלם/יוצר: U.S. Bureau of Alcohol, Tobacco, Firearms and Explosives
+  - רישיון: Public domain
+  - מקור: https://commons.wikimedia.org/wiki/File:Glock_17_(transparent_background).jpg
+- **jericho** - File:Jericho 941F.jpg
+  - צלם/יוצר: No machine-readable author provided. Aesinis assumed (based on copyright claims).
+  - רישיון: Public domain
+  - מקור: https://commons.wikimedia.org/wiki/File:Jericho_941F.jpg
+- **launcher** - File:PEO M203A2 Grenade Launcher.png
+  - צלם/יוצר: PEO Soldier
+  - רישיון: Public domain
+  - מקור: https://commons.wikimedia.org/wiki/File:PEO_M203A2_Grenade_Launcher.png
+- **m16** - File:M16A1 rifle.jpg
+  - צלם/יוצר: U.S. Marine Corps photo illustration by Sgt. James Stanfield
+  - רישיון: Public domain  None
+  - מקור: https://commons.wikimedia.org/wiki/File:M16A1_rifle.jpg
+- **m16a1** - File:M16A1 cutaway noBg.jpg
+  - צלם/יוצר: Curiosandrelics
+  - רישיון: CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
+  - מקור: https://commons.wikimedia.org/wiki/File:M16A1_cutaway_noBg.jpg
+- **m16a2** - File:M16A2 rightside noBG.jpg
+  - צלם/יוצר: Gewehr= Armémuseum (The Swedish Army Museum) Gurt = https://commons.wikimedia.org/wiki/File:M16_Variants.jpg Curiosandrelics
+  - רישיון: CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
+  - מקור: https://commons.wikimedia.org/wiki/File:M16A2_rightside_noBG.jpg
+- **m16a4** - File:M16A4-JH01 noBG.jpg
+  - צלם/יוצר: Jan Hrdonka
+  - רישיון: CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
+  - מקור: https://commons.wikimedia.org/wiki/File:M16A4-JH01_noBG.jpg
+- **m2** - File:M2 machine gun at Musee de l Armee-IMG 7566-white.jpg
+  - צלם/יוצר: Rama
+  - רישיון: CC BY-SA 3.0 fr  https://creativecommons.org/licenses/by-sa/3.0/fr/deed.en
+  - מקור: https://commons.wikimedia.org/wiki/File:M2_machine_gun_at_Musee_de_l_Armee-IMG_7566-white.jpg
+- **m249** - File:PEO M249 Para ACOG.jpg
+  - צלם/יוצר: Photo Courtesy of PEO Soldier
+  - רישיון: Public domain  None
+  - מקור: https://commons.wikimedia.org/wiki/File:PEO_M249_Para_ACOG.jpg
+- **m4** - File:PEO M4 Carbine RAS noBG.png
+  - צלם/יוצר: Photo Courtesy of PEO Soldier
+  - רישיון: CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
+  - מקור: https://commons.wikimedia.org/wiki/File:PEO_M4_Carbine_RAS_noBG.png
+- **m4a1** - File:M4A1-flattop.png
+  - צלם/יוצר: Source: PEO SoldierDerivative: User:MathKnight
+  - רישיון: Public domain
+  - מקור: https://commons.wikimedia.org/wiki/File:M4A1-flattop.png
+- **mag** - File:FN MAG Machine Gun Left.jpg
+  - צלם/יוצר: FN Herstal
+  - רישיון: CC BY-SA 2.0  https://creativecommons.org/licenses/by-sa/2.0
+  - מקור: https://commons.wikimedia.org/wiki/File:FN_MAG_Machine_Gun_Left.jpg
+- **mp5** - File:HK MP5 noBG.png
+  - צלם/יוצר: Dybdal / Mattes
+  - רישיון: CC BY-SA 3.0  https://creativecommons.org/licenses/by-sa/3.0
+  - מקור: https://commons.wikimedia.org/wiki/File:HK_MP5_noBG.png
+- **mp7** - File:HK MP7 Bundeswehr noBG.png
+  - צלם/יוצר: KrisfromGermany
+  - רישיון: CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
+  - מקור: https://commons.wikimedia.org/wiki/File:HK_MP7_Bundeswehr_noBG.png
+- **p226** - File:SIG Sauer P226.jpg
+  - צלם/יוצר: user:Rama, cropped and retouched by user:Atirador.
+  - רישיון: CC BY-SA 2.0 fr  https://creativecommons.org/licenses/by-sa/2.0/fr/deed.en
+  - מקור: https://commons.wikimedia.org/wiki/File:SIG_Sauer_P226.jpg
+- **remington** - File:Hunting rifle 02.png
+  - צלם/יוצר: Ragnhild Kjeldsen
+  - רישיון: CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
+  - מקור: https://commons.wikimedia.org/wiki/File:Hunting_rifle_02.png
 - **saw** - File:Hand saw - small.jpg
   - צלם/יוצר: Pily_platnice.jpg: Mnemosine derivative work: Bigforrap (talk)
   - רישיון: Public domain  None
   - מקור: https://commons.wikimedia.org/wiki/File:Hand_saw_-_small.jpg
+- **shotgun** - File:Remington 870 Wingmaster (55416542561).jpg
+  - צלם/יוצר: Mitch Barrie
+  - רישיון: CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
+  - מקור: https://commons.wikimedia.org/wiki/File:Remington_870_Wingmaster_(55416542561).jpg
+- **shuriken** - File:Shuriken Shaken Iga.jpg
+  - צלם/יוצר: Kaliostro
+  - רישיון: CC BY-SA 3.0  https://creativecommons.org/licenses/by-sa/3.0
+  - מקור: https://commons.wikimedia.org/wiki/File:Shuriken_Shaken_Iga.jpg
 - **sickle** - File:Sickle - কাস্তে - DSC00435.jpg
   - צלם/יוצר: ROCKY
   - רישיון: CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
   - מקור: https://commons.wikimedia.org/wiki/File:Sickle_-_%E0%A6%95%E0%A6%BE%E0%A6%B8%E0%A7%8D%E0%A6%A4%E0%A7%87_-_DSC00435.jpg
+- **slingshot** - File:Slingshot - গুলতি - DSC00530.jpg
+  - צלם/יוצר: Moheen
+  - רישיון: CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
+  - מקור: https://commons.wikimedia.org/wiki/File:Slingshot_-_%E0%A6%97%E0%A7%81%E0%A6%B2%E0%A6%A4%E0%A6%BF_-_DSC00530.jpg
+- **smith** - File:Smith and Wesson 686.jpg
+  - צלם/יוצר: U.S. Bureau of Alcohol, Tobacco, Firearms and Explosives
+  - רישיון: Public domain
+  - מקור: https://commons.wikimedia.org/wiki/File:Smith_and_Wesson_686.jpg
+- **sword** - File:Sword (PSF).png
+  - צלם/יוצר: Pearson Scott Foresman
+  - רישיון: Public domain
+  - מקור: https://commons.wikimedia.org/wiki/File:Sword_(PSF).png
+- **tango51** - File:Tango51zoom.jpg
+  - צלם/יוצר: Tactical Operations Inc.
+  - רישיון: CC BY 4.0  https://creativecommons.org/licenses/by/4.0
+  - מקור: https://commons.wikimedia.org/wiki/File:Tango51zoom.jpg
+- **tavor** - File:IWI-Tavor-TAR-21w1 new noBG.png
+  - צלם/יוצר: MathKnight / new "digital editing" by Auge=mit
+  - רישיון: CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
+  - מקור: https://commons.wikimedia.org/wiki/File:IWI-Tavor-TAR-21w1_new_noBG.png
+- **type56** - File:Chinese Type 56-1 Assault Rifle other side.jpg
+  - צלם/יוצר: RRT877
+  - רישיון: CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
+  - מקור: https://commons.wikimedia.org/wiki/File:Chinese_Type_56-1_Assault_Rifle_other_side.jpg
+- **uzi** - File:Uzi-nobg.png
+  - צלם/יוצר: John Torch II
+  - רישיון: CC0  http://creativecommons.org/publicdomain/zero/1.0/deed.en
+  - מקור: https://commons.wikimedia.org/wiki/File:Uzi-nobg.png
 
-הציורים של שאר הפריטים (מכוש, חכה, לפיד, סירה ותרופות) מצוירים בתוך הקוד.
+לפריטים שאין להם תצלום חופשי מתאים (מכוש, חכה, לפיד, סירה, תרופות,
+רימונים, ציוד הגנה ועוד) המשחק מצייר את הפריט בעצמו בתוך הקוד.

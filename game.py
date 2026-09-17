@@ -219,6 +219,9 @@ PHOTOS = {}
 PHOTO_ALIAS = {
     "glock19": "glock", "sig": "p226", "browning": "m2",
     "barrett82": "barrett", "barrett_mg": "barrett",
+    # דגמים שנראים כמעט זהים לדגם שיש לו תצלום
+    "glock47": "glock17", "m16a3": "m16a2", "akms": "akm",
+    "m4a2": "m4a1", "m4a3": "m4a1", "m4a4": "m4a1",
 }
 
 
