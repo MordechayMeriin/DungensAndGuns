@@ -144,6 +144,7 @@ def build_library():
                         decay(tone(700, 0.18, "sine", 0.3, sweep_to=1200), power=5))
     lib["sick"] = decay(tone(200, 0.5, "saw", 0.4, sweep_to=150), power=2.5)
     lib["no"] = blips([300, 220], 0.08, "square", 0.4)
+    lib["tick"] = decay(tone(900, 0.035, "square", 0.35), power=10)
 
     # שלבים
     lib["level"] = blips([523, 659, 784, 1046], 0.085)

@@ -126,6 +126,23 @@ GEAR_BY_ID = {g["id"]: g for g in GEAR}
 
 THROWABLES = [w for w in WEAPONS if w["kind"] == "throw"]
 
+# גלגל המזל - שבע משבצות טובות ושלוש רעות, מפוזרות מסביב
+WHEEL_PRICE = 200
+WHEEL_SLICES = [
+    dict(id="money",      name="כסף",        color=(226, 186, 54),  good=True),
+    dict(id="sick",       name="מחלה",       color=(118, 156, 96),  good=False),
+    dict(id="potion",     name="תרופה",      color=(216, 62, 74),   good=True),
+    dict(id="lose_money", name="מינוס כסף",  color=(176, 92, 40),   good=False),
+    dict(id="grenades",   name="רימונים",    color=(104, 128, 78),  good=True),
+    dict(id="weapon",     name="נשק",        color=(126, 130, 142), good=True),
+    dict(id="lose_hp",    name="מינוס חיים", color=(198, 52, 52),   good=False),
+    dict(id="tool",       name="כלי עבודה",  color=(150, 100, 52),  good=True),
+    dict(id="gear",       name="ציוד",       color=(92, 120, 164),  good=True),
+    dict(id="heal",       name="חיים מלאים", color=(62, 190, 90),   good=True),
+]
+WHEEL_ITEM = dict(id="wheel", name="גלגל המזל", art="wheel", price=WHEEL_PRICE,
+                  desc="סיבוב אחד: אפשר לזכות בנשק, כסף או ציוד - ואפשר גם להפסיד")
+
 # איזה קול משמיע כל סוג נשק
 CAT_SOUNDS = {
     "אקדחים": "shot_pistol", "רובי צייד": "shot_shotgun", "תתי מקלע": "shot_smg",
@@ -635,6 +652,24 @@ def paint_smoke(g):
     g.circ(73, -3, 3.4, (208, 210, 218))
 
 
+def paint_wheel(g):
+    """גלגל מזל: עוגה צבעונית עם חץ למעלה."""
+    cx, cy, r = 44, 1, 15
+    colors = [(226, 186, 54), (118, 156, 96), (216, 62, 74), (176, 92, 40),
+              (104, 128, 78), (126, 130, 142), (198, 52, 52), (150, 100, 52)]
+    for i, color in enumerate(colors):
+        start = i * math.pi / 4
+        points = [(cx, cy)]
+        for k in range(7):
+            a = start + (math.pi / 4) * k / 6.0
+            points.append((cx + math.cos(a) * r, cy + math.sin(a) * r))
+        g.poly(points, color)
+    g.circ(cx, cy, r, (30, 30, 34), 1.2)
+    g.circ(cx, cy, 3.4, (40, 40, 46))
+    g.circ(cx, cy, 3.4, (255, 214, 102), 1)
+    g.poly([(cx, cy - r + 3), (cx - 3.4, cy - r - 4), (cx + 3.4, cy - r - 4)], (255, 214, 102))
+
+
 def paint_shield(g):
     g.box(25, -15, 35, 30, (66, 78, 92), 3)                                # מסגרת
     g.box(27, -13, 31, 26, (168, 194, 218), 2)                             # לוח שקוף
@@ -706,6 +741,7 @@ ART_PAINTERS = {
     "grenade": paint_grenade, "smoke": paint_smoke,
     "shield": paint_shield, "vest": paint_vest, "helmet": paint_helmet,
     "sight": paint_sight, "laser": paint_laser, "launcher": paint_launcher,
+    "wheel": paint_wheel,
 }
 
 
@@ -891,6 +927,7 @@ class Game:
         self.last_potion = 0
         self.swing_until = 0
         self.swing_reach = 40
+        self.wheel = None
         self.sick = False
         self.sick_tick = 0
         self.sick_nag = 0
@@ -1358,6 +1395,151 @@ class Game:
         else:
             self.resources.remove(res)
 
+    # ---------- גלגל המזל ----------
+    def spin_wheel(self):
+        self.wheel = dict(angle=random.uniform(0, 6.28), speed=random.uniform(0.34, 0.46),
+                          done=False, result=None, last_index=-1, closed_at=0)
+        self.sfx.play("buy")
+
+    def wheel_index(self):
+        """איזו משבצת נמצאת מתחת לחץ שבראש הגלגל."""
+        step = 2 * math.pi / len(WHEEL_SLICES)
+        rel = (-math.pi / 2 - self.wheel["angle"]) % (2 * math.pi)
+        return int(rel // step) % len(WHEEL_SLICES)
+
+    def update_wheel(self):
+        w = self.wheel
+        if w["done"]:
+            return
+        w["angle"] = (w["angle"] + w["speed"]) % (2 * math.pi)
+        w["speed"] *= 0.975            # בערך שלוש שניות סיבוב
+        index = self.wheel_index()
+        if index != w["last_index"]:
+            w["last_index"] = index
+            self.sfx.play("tick", gap=20)
+        if w["speed"] < 0.005:
+            w["done"] = True
+            w["result"] = WHEEL_SLICES[index]
+            self.apply_wheel(w["result"])
+
+    def apply_wheel(self, slice_):
+        """מחלק את הפרס או את העונש לפי המשבצת שיצאה."""
+        kind = slice_["id"]
+        self.sfx.play("crate_good" if slice_["good"] else "crate_bad")
+
+        if kind == "money":
+            gain = random.randint(150, 250 + self.level * 40)
+            self.money += gain
+            self.wheel["text"] = "זכית ב-%d כסף!" % gain
+        elif kind == "potion":
+            pid = random.choice(["small", "medium", "large", "large"])
+            self.potions[pid] += 2
+            potion = next(p for p in POTIONS if p["id"] == pid)
+            self.wheel["text"] = "זכית ב-2 %s!" % potion["name"]
+        elif kind == "grenades":
+            item = random.choice(THROWABLES)
+            count = random.randint(2, 4)
+            self.ammo[item["id"]] += count
+            if item["id"] not in self.owned_weapons:
+                self.owned_weapons.append(item["id"])
+            self.wheel["text"] = "זכית ב-%d %s!" % (count, item["name"])
+        elif kind == "weapon":
+            budget = 600 + self.level * 400
+            options = [w for w in WEAPONS if w["kind"] != "throw"
+                       and w["id"] not in self.owned_weapons and w["price"] <= budget]
+            if options:
+                weapon = random.choice(options)
+                self.owned_weapons.append(weapon["id"])
+                self.wheel["text"] = "זכית בנשק: %s!" % weapon["name"]
+            else:
+                self.money += 300
+                self.wheel["text"] = "יש לך כבר את כל הנשקים - קיבלת 300 כסף"
+        elif kind == "tool":
+            options = [t for t in TOOLS if not self.tools[t["id"]]]
+            if options:
+                tool = random.choice(options)
+                self.tools[tool["id"]] = True
+                self.wheel["text"] = "זכית בכלי: %s!" % tool["name"]
+            else:
+                self.money += 200
+                self.wheel["text"] = "יש לך כבר את כל הכלים - קיבלת 200 כסף"
+        elif kind == "gear":
+            options = [g for g in GEAR if not self.gear[g["id"]]]
+            if options:
+                item = random.choice(options)
+                self.gear[item["id"]] = True
+                self.wheel["text"] = "זכית בציוד: %s!" % item["name"]
+            else:
+                self.money += 300
+                self.wheel["text"] = "יש לך כבר את כל הציוד - קיבלת 300 כסף"
+        elif kind == "heal":
+            self.hp = self.max_hp
+            self.wheel["text"] = "החיים שלך חזרו למלא!"
+        elif kind == "sick":
+            if self.sick:
+                self.hp = max(1, self.hp - 10)
+                self.wheel["text"] = "עוד מחלה! -10 חיים"
+            else:
+                self.sick = True
+                self.sick_tick = self.now()
+                self.sick_nag = self.now()
+                self.sfx.play("sick")
+                self.wheel["text"] = "נדבקת במחלה! צריך תרופה גדולה"
+        elif kind == "lose_money":
+            loss = min(self.money, max(50, int(self.money * random.uniform(0.2, 0.4))))
+            self.money -= loss
+            self.wheel["text"] = "הפסדת %d כסף" % loss
+        else:
+            damage = random.randint(15, 30)
+            self.sfx.play("hurt")
+            self.hurt(damage)
+            self.wheel["text"] = "נפגעת! -%d חיים" % damage
+
+    def draw_wheel(self):
+        w = self.wheel
+        overlay = pygame.Surface((SCREEN_W, SCREEN_H), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 205))
+        self.screen.blit(overlay, (0, 0))
+
+        title = self.font_big.render(rtl("גלגל המזל"), True, (255, 214, 102))
+        self.screen.blit(title, (SCREEN_W // 2 - title.get_width() // 2, 18))
+
+        cx, cy, radius = SCREEN_W // 2, SCREEN_H // 2 + 12, 158
+        step = 2 * math.pi / len(WHEEL_SLICES)
+        for i, slice_ in enumerate(WHEEL_SLICES):
+            start = w["angle"] + i * step
+            points = [(cx, cy)]
+            for k in range(13):
+                a = start + step * k / 12.0
+                points.append((cx + math.cos(a) * radius, cy + math.sin(a) * radius))
+            bright = w["done"] and w["result"] is slice_
+            color = slice_["color"] if not bright else tuple(min(255, c + 60) for c in slice_["color"])
+            pygame.draw.polygon(self.screen, color, points)
+            pygame.draw.polygon(self.screen, (24, 24, 28), points, 2)
+
+            mid = start + step / 2
+            label = self.font_small.render(rtl(slice_["name"]), True,
+                                           (20, 20, 24) if sum(slice_["color"]) > 400 else (250, 250, 250))
+            lx = cx + math.cos(mid) * radius * 0.63
+            ly = cy + math.sin(mid) * radius * 0.63
+            self.screen.blit(label, (lx - label.get_width() // 2, ly - label.get_height() // 2))
+
+        pygame.draw.circle(self.screen, (40, 40, 46), (cx, cy), 22)
+        pygame.draw.circle(self.screen, (255, 214, 102), (cx, cy), 22, 3)
+        pygame.draw.polygon(self.screen, (255, 214, 102),
+                            [(cx, cy - radius + 16), (cx - 14, cy - radius - 14),
+                             (cx + 14, cy - radius - 14)])
+
+        if w["done"]:
+            text = self.font.render(rtl(w.get("text", "")), True, (255, 255, 255))
+            box = pygame.Rect(SCREEN_W // 2 - text.get_width() // 2 - 16, SCREEN_H - 78,
+                              text.get_width() + 32, 34)
+            pygame.draw.rect(self.screen, (44, 44, 52), box, border_radius=8)
+            pygame.draw.rect(self.screen, (255, 214, 102), box, 2, border_radius=8)
+            self.screen.blit(text, (box.x + 16, box.y + 6))
+            hint = self.font_small.render(rtl("לחץ על מקש כלשהו כדי להמשיך"), True, (190, 190, 190))
+            self.screen.blit(hint, (SCREEN_W // 2 - hint.get_width() // 2, SCREEN_H - 38))
+
     def open_crate(self, crate):
         if crate["kind"] == "bad":
             self.bad_crate(crate)
@@ -1588,6 +1770,8 @@ class Game:
                     rows.append(("ammo", w, False))
                 else:
                     rows.append(("weapon", w, w["id"] in self.owned_weapons))
+        rows.append(("header", "גלגל המזל", None))
+        rows.append(("wheel", WHEEL_ITEM, False))
         for cat in GEAR_CATS:
             rows.append(("header", cat, None))
             for g in GEAR:
@@ -1611,7 +1795,7 @@ class Game:
                 return "%s   מסתיר אותך מהאויבים (יש לך %d)" % (item["name"], self.ammo[item["id"]])
             return "%s   נזק %d-%d בכל הסביבה (יש לך %d)" % (
                 item["name"], item["dmg"][0], item["dmg"][1], self.ammo[item["id"]])
-        if kind in ("tool", "gear"):
+        if kind in ("tool", "gear", "wheel"):
             return "%s   %s" % (item["name"], item["desc"])
         return "%s   מחזירה %d חיים (יש לך %d)" % (
             item["name"], item["heal"], self.potions[item["id"]])
@@ -1637,6 +1821,12 @@ class Game:
             self.money -= item["price"]
             self.gear[item["id"]] = True
             self.say("קנית %s!" % item["name"])
+        elif kind == "wheel":
+            if self.money < item["price"]:
+                return
+            self.money -= item["price"]
+            self.shop_open = False
+            self.spin_wheel()
         elif kind == "ammo":
             if self.money < item["price"]:
                 return
@@ -1946,6 +2136,12 @@ class Game:
                 if event.type == pygame.QUIT:
                     running = False
                 elif event.type == pygame.KEYDOWN:
+                    if self.wheel is not None:
+                        if event.key == pygame.K_ESCAPE:
+                            running = False
+                        elif self.wheel["done"]:
+                            self.wheel = None
+                        continue
                     if event.key == pygame.K_ESCAPE:
                         running = False
                     elif self.shop_open and event.key in (pygame.K_UP, pygame.K_DOWN,
@@ -1974,7 +2170,10 @@ class Game:
                 elif event.type == pygame.MOUSEWHEEL and self.shop_open:
                     self.shop_scroll = max(0, min(self.shop_max_scroll, self.shop_scroll - event.y * 120))
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    if self.shop_open:
+                    if self.wheel is not None:
+                        if self.wheel["done"]:
+                            self.wheel = None
+                    elif self.shop_open:
                         for rect, kind, item in self.shop_buttons:
                             if rect.collidepoint(event.pos):
                                 self.buy(kind, item)
@@ -1982,7 +2181,10 @@ class Game:
                     elif not self.game_over:
                         self.inspect_enemy_at(event.pos)
 
-            if not self.game_over and not self.shop_open:
+            if self.wheel is not None:
+                self.update_wheel()
+
+            if not self.game_over and not self.shop_open and self.wheel is None:
                 self.update_player(pygame.key.get_pressed())
                 self.update_enemies()
                 self.update_bullets()
@@ -2000,7 +2202,9 @@ class Game:
             self.draw_world()
             self.draw_inspect()
             self.draw_hud()
-            if self.shop_open:
+            if self.wheel is not None:
+                self.draw_wheel()
+            elif self.shop_open:
                 self.draw_shop()
             if self.game_over:
                 self.draw_game_over()
