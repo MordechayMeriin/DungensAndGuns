@@ -126,6 +126,33 @@ GEAR_BY_ID = {g["id"]: g for g in GEAR}
 
 THROWABLES = [w for w in WEAPONS if w["kind"] == "throw"]
 
+# סוגי תחמושת. נשק קר, קשת, רוגטקה ושוריקנים לא צורכים תחמושת בכלל.
+AMMO_TYPES = [
+    dict(id="ammo_pistol", name="כדורי אקדח",   art="ammo_pistol", pack=40, price=70,
+         desc="לאקדחים ולתתי מקלע"),
+    dict(id="ammo_rifle",  name="כדורי רובה",   art="ammo_rifle",  pack=30, price=110,
+         desc="לרובי סער"),
+    dict(id="ammo_shell",  name="כדורי שוטגן",  art="ammo_shell",  pack=12, price=90,
+         desc="לרובי צייד"),
+    dict(id="ammo_sniper", name="כדורי צלפים",  art="ammo_sniper", pack=10, price=150,
+         desc="לרובי צלפים"),
+    dict(id="ammo_mg",     name="חגורת מקלע",   art="ammo_mg",     pack=60, price=200,
+         desc="למקלעים כבדים"),
+]
+AMMO_BY_ID = {a["id"]: a for a in AMMO_TYPES}
+AMMO_BY_CAT = {
+    "אקדחים": "ammo_pistol", "תתי מקלע": "ammo_pistol", "רובי סער": "ammo_rifle",
+    "רובי צייד": "ammo_shell", "רובי צלפים": "ammo_sniper", "מקלעים כבדים": "ammo_mg",
+}
+
+
+def weapon_ammo(weapon):
+    """איזה סוג תחמושת הנשק צורך, או None אם הוא לא צורך בכלל."""
+    if weapon["kind"] != "gun":
+        return None
+    return AMMO_BY_CAT.get(weapon["cat"])
+
+
 # גלגל המזל - שבע משבצות טובות ושלוש רעות, מפוזרות מסביב
 WHEEL_PRICE = 200
 WHEEL_SLICES = [
@@ -652,6 +679,47 @@ def paint_smoke(g):
     g.circ(73, -3, 3.4, (208, 210, 218))
 
 
+def cartridge(g, x, y, length, width, brass=(206, 164, 72), tip=(150, 120, 80)):
+    """כדור בודד: תרמיל פליז וראש מתכת."""
+    g.box(x, y, length, width, brass, width * 0.3)
+    g.box(x, y, length, width * 0.35, (232, 196, 108), width * 0.3)
+    g.box(x, y - 0.4, width * 0.5, width + 0.8, (170, 132, 58), 0.4)      # שפה אחורית
+    g.poly([(x + length, y), (x + length + width * 0.9, y + width / 2.0),
+            (x + length, y + width)], tip)
+
+
+def paint_ammo_pistol(g):
+    for i in range(4):
+        cartridge(g, 16 + i * 15, -4 + (i % 2) * 6, 11, 5)
+
+
+def paint_ammo_rifle(g):
+    for i in range(3):
+        cartridge(g, 12 + i * 22, -5 + (i % 2) * 7, 17, 5.5, (186, 158, 66), (120, 124, 134))
+
+
+def paint_ammo_shell(g):
+    for i in range(3):
+        x, y = 14 + i * 22, -5 + (i % 2) * 7
+        g.box(x, y, 16, 7, (196, 58, 54), 1.4)                            # גוף אדום
+        g.box(x, y, 16, 2.4, (222, 92, 86), 1.4)
+        g.box(x + 13, y - 0.5, 5, 8, (206, 172, 84), 1)                   # בסיס פליז
+
+
+def paint_ammo_sniper(g):
+    for i in range(2):
+        cartridge(g, 18 + i * 30, -6 + i * 9, 24, 7, (198, 160, 70), (110, 114, 126))
+
+
+def paint_ammo_mg(g):
+    g.box(10, -1, 68, 6, (74, 74, 84), 2)                                 # חגורה
+    for i in range(7):
+        x = 12 + i * 9.5
+        g.box(x, -9, 6, 9, (206, 164, 72), 1)
+        g.box(x, -9, 6, 3, (232, 196, 108), 1)
+        g.poly([(x, -9), (x + 3, -13), (x + 6, -9)], (132, 136, 146))
+
+
 def paint_wheel(g):
     """גלגל מזל: עוגה צבעונית עם חץ למעלה."""
     cx, cy, r = 44, 1, 15
@@ -742,6 +810,9 @@ ART_PAINTERS = {
     "shield": paint_shield, "vest": paint_vest, "helmet": paint_helmet,
     "sight": paint_sight, "laser": paint_laser, "launcher": paint_launcher,
     "wheel": paint_wheel,
+    "ammo_pistol": paint_ammo_pistol, "ammo_rifle": paint_ammo_rifle,
+    "ammo_shell": paint_ammo_shell, "ammo_sniper": paint_ammo_sniper,
+    "ammo_mg": paint_ammo_mg,
 }
 
 
@@ -916,6 +987,8 @@ class Game:
         self.tools = {t["id"]: False for t in TOOLS}
         self.gear = {g["id"]: False for g in GEAR}
         self.ammo = {w["id"]: 0 for w in THROWABLES}
+        self.ammo.update({a["id"]: 0 for a in AMMO_TYPES})
+        self.ammo["ammo_pistol"] = 80                 # מלאי התחלתי לגלוק
         self.potions = {"small": 0, "medium": 0, "large": 0}
         self.game_over = False
         self.shop_open = False
@@ -986,6 +1059,14 @@ class Game:
         self.sparks = []
         self.grenades = []
         self.smokes = []
+
+    def give_weapon(self, weapon):
+        """נותן נשק חדש, ואיתו חפיסת תחמושת אחת כדי שאפשר יהיה לירות בו."""
+        if weapon["id"] not in self.owned_weapons:
+            self.owned_weapons.append(weapon["id"])
+        ammo_id = weapon_ammo(weapon)
+        if ammo_id:
+            self.ammo[ammo_id] += AMMO_BY_ID[ammo_id]["pack"]
 
     def make_enemy(self, x, y):
         weapon = ENEMY_WEAPONS[random.randrange(self.max_weapon)]
@@ -1149,6 +1230,15 @@ class Game:
             self.throw_grenade(w)
             return
 
+        ammo_id = weapon_ammo(w)
+        if ammo_id and self.ammo.get(ammo_id, 0) <= 0:
+            self.last_shot = self.now()
+            self.sfx.play("no", gap=500)
+            self.say("נגמרו לך %s! קנה בחנות או החלף נשק" % AMMO_BY_ID[ammo_id]["name"])
+            return
+        if ammo_id:
+            self.ammo[ammo_id] -= 1
+
         self.last_shot = self.now()
         self.sfx.play(weapon_sound(w), gap=40)
         if w["kind"] == "melee":
@@ -1192,7 +1282,7 @@ class Game:
                 self.enemies.remove(e)
                 gain = random.randint(20, 50)
                 self.money += gain
-                self.say("חיסלת אויב! +%d כסף" % gain)
+                self.say("חיסלת אויב! +%d כסף%s" % (gain, self.loot_ammo(e)))
         if not hit:
             self.spark(self.px + self.dir[0] * reach, self.py + self.dir[1] * reach, (140, 140, 150))
 
@@ -1437,12 +1527,18 @@ class Game:
             potion = next(p for p in POTIONS if p["id"] == pid)
             self.wheel["text"] = "זכית ב-2 %s!" % potion["name"]
         elif kind == "grenades":
-            item = random.choice(THROWABLES)
-            count = random.randint(2, 4)
-            self.ammo[item["id"]] += count
-            if item["id"] not in self.owned_weapons:
-                self.owned_weapons.append(item["id"])
-            self.wheel["text"] = "זכית ב-%d %s!" % (count, item["name"])
+            if random.random() < 0.5:
+                item = random.choice(AMMO_TYPES)
+                count = item["pack"] * 2
+                self.ammo[item["id"]] += count
+                self.wheel["text"] = "זכית ב-%d %s!" % (count, item["name"])
+            else:
+                item = random.choice(THROWABLES)
+                count = random.randint(2, 4)
+                self.ammo[item["id"]] += count
+                if item["id"] not in self.owned_weapons:
+                    self.owned_weapons.append(item["id"])
+                self.wheel["text"] = "זכית ב-%d %s!" % (count, item["name"])
         elif kind == "weapon":
             # קודם בוחרים מחלקה באקראי, ואז נשק מתוכה - כך לכל מחלקה סיכוי שווה
             missing = [w for w in WEAPONS if w["kind"] != "throw"
@@ -1451,7 +1547,7 @@ class Game:
             if cats:
                 cat = random.choice(cats)
                 weapon = random.choice([w for w in missing if w["cat"] == cat])
-                self.owned_weapons.append(weapon["id"])
+                self.give_weapon(weapon)
                 self.wheel["text"] = "זכית בנשק: %s (%s)!" % (weapon["name"], weapon["cat"])
             else:
                 self.money += 300
@@ -1569,6 +1665,12 @@ class Game:
             potion = next(p for p in POTIONS if p["id"] == pid)
             self.say("בתיבה הייתה %s!" % potion["name"])
             return
+        if roll < 0.58:
+            item = random.choice(AMMO_TYPES)
+            count = item["pack"]
+            self.ammo[item["id"]] += count
+            self.say("בתיבה היו %d %s!" % (count, item["name"]))
+            return
         if roll < 0.66:
             item = random.choice(THROWABLES)
             count = random.randint(1, 3)
@@ -1583,7 +1685,7 @@ class Game:
                        and w["id"] not in self.owned_weapons and w["price"] <= budget]
             if options:
                 weapon = random.choice(options)
-                self.owned_weapons.append(weapon["id"])
+                self.give_weapon(weapon)
                 self.say("בתיבה היה נשק: %s!" % weapon["name"])
                 return
         if roll < 0.93:
@@ -1722,7 +1824,7 @@ class Game:
                                 self.enemies.remove(e)
                                 gain = random.randint(20, 50)
                                 self.money += gain
-                                self.say("חיסלת אויב! +%d כסף" % gain)
+                                self.say("חיסלת אויב! +%d כסף%s" % (gain, self.loot_ammo(e)))
                         else:
                             self.spark(b.x, b.y, (150, 150, 150))
                         break
@@ -1735,6 +1837,15 @@ class Game:
                 else:
                     self.spark(b.x, b.y, (150, 150, 150))
         self.bullets = [b for b in self.bullets if not b.dead]
+
+    def loot_ammo(self, enemy):
+        """בסיכוי מסוים לוקחים מהאויב את התחמושת שהייתה לו."""
+        ammo_id = weapon_ammo(enemy.weapon)
+        if not ammo_id or random.random() > 0.45:
+            return ""
+        count = max(2, AMMO_BY_ID[ammo_id]["pack"] // 4)
+        self.ammo[ammo_id] += count
+        return " ולקחת %d %s" % (count, AMMO_BY_ID[ammo_id]["name"])
 
     def spark(self, x, y, color):
         for _ in range(5):
@@ -1772,6 +1883,9 @@ class Game:
                     rows.append(("ammo", w, False))
                 else:
                     rows.append(("weapon", w, w["id"] in self.owned_weapons))
+        rows.append(("header", "תחמושת", None))
+        for ammo in AMMO_TYPES:
+            rows.append(("bullets", ammo, False))
         rows.append(("header", "גלגל המזל", None))
         rows.append(("wheel", WHEEL_ITEM, False))
         for cat in GEAR_CATS:
@@ -1787,8 +1901,12 @@ class Game:
     def shop_label(self, kind, item):
         if kind == "weapon":
             if item["kind"] == "melee":
-                return "%s   נזק %d-%d | מכה מקרוב" % (item["name"], item["dmg"][0], item["dmg"][1])
-            extra = " | %d כדורים בירייה" % item["pellets"] if item.get("pellets") else ""
+                return "%s   נזק %d-%d | מכה מקרוב | בלי תחמושת" % (
+                    item["name"], item["dmg"][0], item["dmg"][1])
+            ammo_id = weapon_ammo(item)
+            extra = " | %s" % AMMO_BY_ID[ammo_id]["name"] if ammo_id else " | בלי תחמושת"
+            if item.get("pellets"):
+                extra = " | %d כדורים בירייה%s" % (item["pellets"], extra)
             return "%s   נזק %d-%d | דיוק %d%% | טווח %d%s" % (
                 item["name"], item["dmg"][0], item["dmg"][1],
                 round(item["acc"] * 100), item["rng"], extra)
@@ -1797,6 +1915,9 @@ class Game:
                 return "%s   מסתיר אותך מהאויבים (יש לך %d)" % (item["name"], self.ammo[item["id"]])
             return "%s   נזק %d-%d בכל הסביבה (יש לך %d)" % (
                 item["name"], item["dmg"][0], item["dmg"][1], self.ammo[item["id"]])
+        if kind == "bullets":
+            return "%s   %s | %d כדורים בחפיסה (יש לך %d)" % (
+                item["name"], item["desc"], item["pack"], self.ammo[item["id"]])
         if kind in ("tool", "gear", "wheel"):
             return "%s   %s" % (item["name"], item["desc"])
         return "%s   מחזירה %d חיים (יש לך %d)" % (
@@ -1815,14 +1936,25 @@ class Game:
             if item["id"] in self.owned_weapons or self.money < item["price"]:
                 return
             self.money -= item["price"]
-            self.owned_weapons.append(item["id"])
-            self.say("קנית %s!" % item["name"])
+            self.give_weapon(item)
+            ammo_id = weapon_ammo(item)
+            if ammo_id:
+                self.say("קנית %s! קיבלת גם %d %s" % (
+                    item["name"], AMMO_BY_ID[ammo_id]["pack"], AMMO_BY_ID[ammo_id]["name"]))
+            else:
+                self.say("קנית %s!" % item["name"])
         elif kind == "gear":
             if self.gear[item["id"]] or self.money < item["price"]:
                 return
             self.money -= item["price"]
             self.gear[item["id"]] = True
             self.say("קנית %s!" % item["name"])
+        elif kind == "bullets":
+            if self.money < item["price"]:
+                return
+            self.money -= item["price"]
+            self.ammo[item["id"]] += item["pack"]
+            self.say("קנית %d %s!" % (item["pack"], item["name"]))
         elif kind == "wheel":
             if self.money < item["price"]:
                 return
@@ -2082,8 +2214,13 @@ class Game:
                                  len(self.owned_weapons)),
             "שלב: %d" % self.level,
             "תרופות: %d" % sum(self.potions.values()),
-            "רימונים: %d" % sum(self.ammo.values()),
+            "רימונים: %d" % sum(self.ammo[w["id"]] for w in THROWABLES),
         ]
+        ammo_id = weapon_ammo(self.weapon())
+        if ammo_id:
+            left = self.ammo[ammo_id]
+            parts.insert(3, ("כדורים: %d" % left,
+                             COL_TEXT if left > 10 else (COL_HP_ORANGE if left else COL_HP_RED)))
         if self.sick:
             parts.insert(1, ("חולה!", (120, 220, 120)))
         if ratio <= 0.25:
