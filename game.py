@@ -9,6 +9,8 @@ import sys
 
 import pygame
 
+import sounds
+
 TILE = 32
 SCREEN_W, SCREEN_H = 960, 640
 FPS = 60
@@ -123,6 +125,23 @@ GEAR_CATS = ["הגנה", "שיפורי נשק"]
 GEAR_BY_ID = {g["id"]: g for g in GEAR}
 
 THROWABLES = [w for w in WEAPONS if w["kind"] == "throw"]
+
+# איזה קול משמיע כל סוג נשק
+CAT_SOUNDS = {
+    "אקדחים": "shot_pistol", "רובי צייד": "shot_shotgun", "תתי מקלע": "shot_smg",
+    "רובי סער": "shot_rifle", "רובי צלפים": "shot_sniper", "מקלעים כבדים": "shot_mg",
+}
+
+
+def weapon_sound(weapon, enemy=False):
+    if weapon["kind"] == "melee":
+        return "swing"
+    if weapon["kind"] == "throw":
+        return "throw"
+    if weapon.get("art") in ("bow", "sling", "shuriken"):
+        return "shot_" + weapon["art"]
+    name = CAT_SOUNDS.get(weapon["cat"], "shot_pistol")
+    return name.replace("shot_", "enemy_") if enemy else name
 # האויבים מקבלים רק נשק חם, מהזול ליקר, כך שבשלבים הראשונים הם חלשים
 ENEMY_WEAPONS = sorted([w for w in WEAPONS if w["kind"] == "gun" and w["cat"] != "נשק קר"],
                        key=lambda w: w["price"])
@@ -846,6 +865,8 @@ class Game:
         self.font_small = load_font(14)
         self.font_big = load_font(34, bold=True)
         self.icon_cache = {}
+        self.sfx = sounds.SoundBank()
+        self.death_sound = False
         self.reset_game()
 
     # ---------- מצב המשחק ----------
@@ -1082,14 +1103,17 @@ class Game:
         if w["kind"] == "throw":
             if self.ammo.get(w["id"], 0) <= 0:
                 self.last_shot = self.now()
+                self.sfx.play("no", gap=400)
                 self.say("נגמרו לך ה%s - קנה בחנות!" % w["name"])
                 return
             self.ammo[w["id"]] -= 1
             self.last_shot = self.now()
+            self.sfx.play("throw")
             self.throw_grenade(w)
             return
 
         self.last_shot = self.now()
+        self.sfx.play(weapon_sound(w), gap=40)
         if w["kind"] == "melee":
             self.swing(w)
             return
@@ -1125,7 +1149,9 @@ class Game:
             hit = True
             e.hp -= random.uniform(*w["dmg"])
             self.spark(e.x, e.y, (255, 240, 170))
+            self.sfx.play("hit", gap=30)
             if e.hp <= 0:
+                self.sfx.play("enemy_die")
                 self.enemies.remove(e)
                 gain = random.randint(20, 50)
                 self.money += gain
@@ -1173,6 +1199,7 @@ class Game:
 
     def explode(self, gr):
         if gr.weapon["id"] == "smoke":
+            self.sfx.play("hiss")
             self.smokes.append(dict(x=gr.x, y=gr.y, r=gr.radius, until=self.now() + 7000))
             for _ in range(24):
                 self.sparks.append([gr.x, gr.y, random.uniform(-2.2, 2.2), random.uniform(-2.2, 2.2),
@@ -1180,6 +1207,7 @@ class Game:
             self.say("ענן עשן! האויבים לא רואים אותך")
             return
 
+        self.sfx.play("explosion")
         for _ in range(30):
             self.sparks.append([gr.x, gr.y, random.uniform(-5, 5), random.uniform(-5, 5), 24,
                                 random.choice([(255, 172, 44), (252, 96, 40), (250, 230, 130)])])
@@ -1188,6 +1216,7 @@ class Game:
             if d <= gr.radius:
                 e.hp -= random.uniform(*gr.weapon["dmg"]) * (1 - d / gr.radius * 0.6)
                 if e.hp <= 0:
+                    self.sfx.play("enemy_die")
                     self.enemies.remove(e)
                     gain = random.randint(25, 60)
                     self.money += gain
@@ -1254,11 +1283,13 @@ class Game:
             return
         if self.hp >= self.max_hp and not self.sick:
             self.last_potion = self.now()
+            self.sfx.play("no", gap=400)
             self.say("החיים שלך מלאים")
             return
         order = ("large", "medium", "small") if not self.sick else ("large",)
         if self.sick and self.potions["large"] <= 0:
             self.last_potion = self.now()
+            self.sfx.play("no", gap=400)
             self.say("אתה חולה - רק תרופה גדולה תעזור, וקנית רק קטנות")
             return
         for pid in order:
@@ -1267,6 +1298,7 @@ class Game:
                 potion = next(p for p in POTIONS if p["id"] == pid)
                 self.potions[pid] -= 1
                 self.hp = min(self.max_hp, self.hp + potion["heal"])
+                self.sfx.play("potion")
                 if pid == "large" and self.sick:
                     self.sick = False
                     self.say("שתית תרופה גדולה, הבראת מהמחלה! +%d חיים" % potion["heal"])
@@ -1274,20 +1306,24 @@ class Game:
                     self.say("שתית %s! +%d חיים" % (potion["name"], potion["heal"]))
                 return
         self.last_potion = self.now()
+        self.sfx.play("no", gap=400)
         self.say("אין לך תרופות - קנה בחנות!")
 
     def harvest(self, res):
         info = RESOURCE_TYPES[res["kind"]]
         tool = info["tool"]
         if tool and not self.tools[tool]:
+            self.sfx.play("no", gap=400)
             self.say("צריך %s בשביל %s - קנה בחנות!" % (TOOL_BY_ID[tool]["name"], info["name"]))
             return
         if res["ready_at"] > self.now():
+            self.sfx.play("no", gap=400)
             self.say("%s עוד לא מוכן - חכה קצת" % info["name"])
             return
 
         gain = random.randint(*info["value"])
         self.money += gain
+        self.sfx.play("pickup")
 
         if res["kind"] == "cave":
             extra = ""
@@ -1312,6 +1348,7 @@ class Game:
             self.sick = True
             self.sick_tick = self.now()
             self.sick_nag = self.now()
+            self.sfx.play("sick")
             self.say("נדבקת ממחלה מהפרה! רק תרופה גדולה תרפא אותך")
         else:
             self.say("אספת %s! +%d כסף" % (info["name"], gain))
@@ -1325,6 +1362,7 @@ class Game:
         if crate["kind"] == "bad":
             self.bad_crate(crate)
         elif crate["kind"] == "empty":
+            self.sfx.play("crate_empty")
             self.spark(crate["x"], crate["y"], (150, 150, 150))
             self.say("פתחת תיבה... והיא ריקה")
         else:
@@ -1332,6 +1370,7 @@ class Game:
 
     def good_crate(self, crate):
         """שלל: כסף, תרופה, רימונים, נשק, כלי עבודה או ציוד."""
+        self.sfx.play("crate_good")
         self.spark(crate["x"], crate["y"], (255, 214, 102))
         roll = random.random()
 
@@ -1384,6 +1423,7 @@ class Game:
 
     def bad_crate(self, crate):
         """תיבה רעה: מלכודת, אויבים, גז רעיל או גנב."""
+        self.sfx.play("crate_bad")
         roll = random.random()
         for _ in range(16):
             self.sparks.append([crate["x"], crate["y"], random.uniform(-4, 4),
@@ -1391,6 +1431,7 @@ class Game:
 
         if roll < 0.35:
             damage = random.randint(10, 25)
+            self.sfx.play("explosion")
             self.hurt(damage)
             self.say("מלכודת בתיבה! -%d חיים" % damage)
         elif roll < 0.65:
@@ -1406,6 +1447,7 @@ class Game:
                 self.sick = True
                 self.sick_tick = self.now()
                 self.sick_nag = self.now()
+                self.sfx.play("sick")
                 self.say("גז רעיל בתיבה! נדבקת - צריך תרופה גדולה")
         else:
             loss = min(self.money, max(15, int(self.money * random.uniform(0.1, 0.3))))
@@ -1414,11 +1456,14 @@ class Game:
 
     def go_fishing(self, tile):
         if not self.tools["rod"]:
+            self.sfx.play("no", gap=400)
             self.say("צריך חכה כדי לדוג - קנה בחנות!")
             return
         if self.fish_cooldown.get(tile, 0) > self.now():
+            self.sfx.play("no", gap=400)
             self.say("אין כאן דגים כרגע - חכה קצת")
             return
+        self.sfx.play("splash")
         gain = random.randint(9, 16)
         self.money += gain
         self.fish_cooldown[tile] = self.now() + 9000
@@ -1465,6 +1510,7 @@ class Game:
                     e.y += dy * speed
             if d <= w["rng"] and self.now() - e.last_shot > w["cooldown"] and not self.in_smoke():
                 e.last_shot = self.now()
+                self.sfx.play(weapon_sound(w, enemy=True), gap=70)
                 dx, dy = (self.px - e.x) / d, (self.py - e.y) / d
                 self.bullets.append(Bullet(e.x, e.y, dx, dy, 7, w["dmg"], w["acc"], w["rng"], False))
 
@@ -1486,7 +1532,9 @@ class Game:
                         if random.random() < b.acc:
                             e.hp -= random.uniform(*b.dmg)
                             self.spark(b.x, b.y, (255, 204, 51))
+                            self.sfx.play("hit", gap=30)
                             if e.hp <= 0:
+                                self.sfx.play("enemy_die")
                                 self.enemies.remove(e)
                                 gain = random.randint(20, 50)
                                 self.money += gain
@@ -1499,6 +1547,7 @@ class Game:
                 if random.random() < b.acc:
                     self.hurt(random.uniform(*b.dmg))
                     self.spark(b.x, b.y, (255, 68, 68))
+                    self.sfx.play("hurt", gap=60)
                 else:
                     self.spark(b.x, b.y, (150, 150, 150))
         self.bullets = [b for b in self.bullets if not b.dead]
@@ -1520,6 +1569,7 @@ class Game:
         return math.hypot(self.px - ex, self.py - ey) < 24
 
     def leave_level(self):
+        self.sfx.play("level")
         self.level += 1
         self.build_level()
         self.say("סיימת את השלב! עובר לשלב %d" % self.level)
@@ -1567,6 +1617,8 @@ class Game:
             item["name"], item["heal"], self.potions[item["id"]])
 
     def buy(self, kind, item):
+        if item["price"] <= self.money:
+            self.sfx.play("buy")
         if kind == "tool":
             if self.tools[item["id"]] or self.money < item["price"]:
                 return
@@ -1862,7 +1914,7 @@ class Game:
             self.screen.blit(text, (box.x + 12, box.y + 5))
 
         help_text = self.font_small.render(
-            rtl("חצים = תזוזה | רווח = ירי | Q = איסוף | T = תרופה | Y = חנות | 1-9 או Z/X = החלפת נשק | קליק על אויב = הנשק שלו"),
+            rtl("חצים = תזוזה | רווח = ירי | Q = איסוף | T = תרופה | Y = חנות | Z/X = החלפת נשק | M = קול | קליק על אויב = הנשק שלו"),
             True, (150, 150, 150))
         self.screen.blit(help_text, (SCREEN_W // 2 - help_text.get_width() // 2, SCREEN_H - 22))
 
@@ -1906,6 +1958,9 @@ class Game:
                     elif event.key == pygame.K_y and not self.game_over:
                         self.shop_open = not self.shop_open
                         self.shop_scroll = 0
+                    elif event.key == pygame.K_m:
+                        on = self.sfx.toggle()
+                        self.say("הקולות דולקים" if on else "הקולות כבויים")
                     elif event.key == pygame.K_r and self.game_over:
                         self.reset_game()
                     elif event.key == pygame.K_x and self.owned_weapons:
@@ -1935,6 +1990,12 @@ class Game:
                 self.update_grenades()
                 self.update_smokes()
                 self.update_sparks()
+
+            if self.game_over and not self.death_sound:
+                self.death_sound = True
+                self.sfx.play("gameover")
+            elif not self.game_over:
+                self.death_sound = False
 
             self.draw_world()
             self.draw_inspect()
