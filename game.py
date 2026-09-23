@@ -914,8 +914,11 @@ class Game:
             self.resources.append(dict(x=tx * TILE + TILE / 2, y=ty * TILE + TILE / 2,
                                        kind=kind, ready_at=0))
 
-        self.crates = [dict(x=tx * TILE + TILE / 2, y=ty * TILE + TILE / 2)
-                       for (tx, ty) in take(3 + self.level // 2)]
+        self.crates = []
+        for (tx, ty) in take(4 + self.level // 2):
+            roll = random.random()
+            kind = "good" if roll < 0.6 else ("bad" if roll < 0.8 else "empty")
+            self.crates.append(dict(x=tx * TILE + TILE / 2, y=ty * TILE + TILE / 2, kind=kind))
 
         self.fish_cooldown = {}
         self.inspect = None
@@ -1242,14 +1245,7 @@ class Game:
             if math.hypot(crate["x"] - self.px, crate["y"] - self.py) < 34:
                 self.last_interact = self.now()
                 self.crates.remove(crate)
-                if random.random() < 0.5:
-                    gain = random.randint(15, 45)
-                    self.money += gain
-                    self.say("פתחת תיבה! +%d כסף" % gain)
-                else:
-                    pid = random.choice(["small", "medium"])
-                    self.potions[pid] += 1
-                    self.say("פתחת תיבה ומצאת תרופה!")
+                self.open_crate(crate)
                 return
 
     def drink_potion(self):
@@ -1324,6 +1320,97 @@ class Game:
             res["ready_at"] = self.now() + info["renew"]
         else:
             self.resources.remove(res)
+
+    def open_crate(self, crate):
+        if crate["kind"] == "bad":
+            self.bad_crate(crate)
+        elif crate["kind"] == "empty":
+            self.spark(crate["x"], crate["y"], (150, 150, 150))
+            self.say("פתחת תיבה... והיא ריקה")
+        else:
+            self.good_crate(crate)
+
+    def good_crate(self, crate):
+        """שלל: כסף, תרופה, רימונים, נשק, כלי עבודה או ציוד."""
+        self.spark(crate["x"], crate["y"], (255, 214, 102))
+        roll = random.random()
+
+        if roll < 0.30:
+            gain = random.randint(20, 40 + self.level * 8)
+            self.money += gain
+            self.say("פתחת תיבה! +%d כסף" % gain)
+            return
+        if roll < 0.50:
+            pid = random.choice(["small", "small", "medium", "large"])
+            self.potions[pid] += 1
+            potion = next(p for p in POTIONS if p["id"] == pid)
+            self.say("בתיבה הייתה %s!" % potion["name"])
+            return
+        if roll < 0.66:
+            item = random.choice(THROWABLES)
+            count = random.randint(1, 3)
+            self.ammo[item["id"]] += count
+            if item["id"] not in self.owned_weapons:
+                self.owned_weapons.append(item["id"])
+            self.say("בתיבה היו %d %s!" % (count, item["name"]))
+            return
+        if roll < 0.82:
+            budget = 400 + self.level * 300
+            options = [w for w in WEAPONS if w["kind"] != "throw"
+                       and w["id"] not in self.owned_weapons and w["price"] <= budget]
+            if options:
+                weapon = random.choice(options)
+                self.owned_weapons.append(weapon["id"])
+                self.say("בתיבה היה נשק: %s!" % weapon["name"])
+                return
+        if roll < 0.93:
+            options = [t for t in TOOLS if not self.tools[t["id"]]]
+            if options:
+                tool = random.choice(options)
+                self.tools[tool["id"]] = True
+                self.say("בתיבה היה כלי: %s!" % tool["name"])
+                return
+        else:
+            options = [g for g in GEAR if not self.gear[g["id"]]]
+            if options:
+                item = random.choice(options)
+                self.gear[item["id"]] = True
+                self.say("בתיבה היה ציוד: %s!" % item["name"])
+                return
+
+        gain = random.randint(25, 50 + self.level * 8)       # אם אין מה לתת - כסף
+        self.money += gain
+        self.say("פתחת תיבה! +%d כסף" % gain)
+
+    def bad_crate(self, crate):
+        """תיבה רעה: מלכודת, אויבים, גז רעיל או גנב."""
+        roll = random.random()
+        for _ in range(16):
+            self.sparks.append([crate["x"], crate["y"], random.uniform(-4, 4),
+                                random.uniform(-4, 4), 22, (232, 72, 60)])
+
+        if roll < 0.35:
+            damage = random.randint(10, 25)
+            self.hurt(damage)
+            self.say("מלכודת בתיבה! -%d חיים" % damage)
+        elif roll < 0.65:
+            count = 1 if self.level < 4 else random.randint(1, 2)
+            for _ in range(count):
+                self.enemies.append(self.make_enemy(crate["x"], crate["y"]))
+            self.say("אויבים התחבאו בתיבה!")
+        elif roll < 0.85:
+            if self.sick:
+                self.hurt(8)
+                self.say("עוד גז רעיל! -8 חיים")
+            else:
+                self.sick = True
+                self.sick_tick = self.now()
+                self.sick_nag = self.now()
+                self.say("גז רעיל בתיבה! נדבקת - צריך תרופה גדולה")
+        else:
+            loss = min(self.money, max(15, int(self.money * random.uniform(0.1, 0.3))))
+            self.money -= loss
+            self.say("גנב היה בתיבה! -%d כסף" % loss)
 
     def go_fishing(self, tile):
         if not self.tools["rod"]:
@@ -1632,9 +1719,12 @@ class Game:
             self.screen.blit(mark, (cx - mark.get_width() // 2, cy - mark.get_height() // 2))
 
         for crate in self.crates:
-            rect = pygame.Rect(sx(crate["x"]) - 10, sy(crate["y"]) - 10, 20, 20)
+            rect = pygame.Rect(sx(crate["x"]) - 11, sy(crate["y"]) - 11, 22, 22)
             pygame.draw.rect(self.screen, COL_CRATE, rect, border_radius=3)
             pygame.draw.rect(self.screen, (90, 58, 26), rect, 2, border_radius=3)
+            mark = self.font_small.render("?", True, (250, 226, 150))
+            self.screen.blit(mark, (rect.centerx - mark.get_width() // 2,
+                                    rect.centery - mark.get_height() // 2))
 
         for e in self.enemies:
             pygame.draw.circle(self.screen, COL_ENEMY, (sx(e.x), sy(e.y)), e.r)
