@@ -1444,13 +1444,15 @@ class Game:
                 self.owned_weapons.append(item["id"])
             self.wheel["text"] = "זכית ב-%d %s!" % (count, item["name"])
         elif kind == "weapon":
-            budget = 600 + self.level * 400
-            options = [w for w in WEAPONS if w["kind"] != "throw"
-                       and w["id"] not in self.owned_weapons and w["price"] <= budget]
-            if options:
-                weapon = random.choice(options)
+            # קודם בוחרים מחלקה באקראי, ואז נשק מתוכה - כך לכל מחלקה סיכוי שווה
+            missing = [w for w in WEAPONS if w["kind"] != "throw"
+                       and w["id"] not in self.owned_weapons]
+            cats = sorted(set(w["cat"] for w in missing))
+            if cats:
+                cat = random.choice(cats)
+                weapon = random.choice([w for w in missing if w["cat"] == cat])
                 self.owned_weapons.append(weapon["id"])
-                self.wheel["text"] = "זכית בנשק: %s!" % weapon["name"]
+                self.wheel["text"] = "זכית בנשק: %s (%s)!" % (weapon["name"], weapon["cat"])
             else:
                 self.money += 300
                 self.wheel["text"] = "יש לך כבר את כל הנשקים - קיבלת 300 כסף"
