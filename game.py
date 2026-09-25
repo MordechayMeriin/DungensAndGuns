@@ -128,21 +128,33 @@ THROWABLES = [w for w in WEAPONS if w["kind"] == "throw"]
 
 # סוגי תחמושת. נשק קר, קשת, רוגטקה ושוריקנים לא צורכים תחמושת בכלל.
 AMMO_TYPES = [
-    dict(id="ammo_pistol", name="כדורי אקדח",   art="ammo_pistol", pack=40, price=70,
-         desc="לאקדחים ולתתי מקלע"),
-    dict(id="ammo_rifle",  name="כדורי רובה",   art="ammo_rifle",  pack=30, price=110,
-         desc="לרובי סער"),
-    dict(id="ammo_shell",  name="כדורי שוטגן",  art="ammo_shell",  pack=12, price=90,
+    dict(id="ammo_pistol",   name="כדורי אקדח",    art="ammo_pistol",   pack=40, price=70,
+         desc="לאקדחים רגילים"),
+    dict(id="ammo_revolver", name="כדורי תופי",    art="ammo_revolver", pack=24, price=80,
+         desc="לאקדחים התופיים (רוגר 101, סמית' אנד ווסון)"),
+    dict(id="ammo_smg",      name="כדורי תת מקלע", art="ammo_smg",      pack=60, price=100,
+         desc="לעוזי, מק 10, MP5 ו-MP7"),
+    dict(id="ammo_rifle",    name="כדורי רובה",    art="ammo_rifle",    pack=30, price=110,
+         desc="לרובי סער מסוג M16, M4 ותבור"),
+    dict(id="ammo_ak",       name="כדורי AK",      art="ammo_ak",       pack=30, price=105,
+         desc="לכל משפחת ה-AK ו-TYPE 56"),
+    dict(id="ammo_shell",    name="כדורי שוטגן",   art="ammo_shell",    pack=12, price=90,
          desc="לרובי צייד"),
-    dict(id="ammo_sniper", name="כדורי צלפים",  art="ammo_sniper", pack=10, price=150,
+    dict(id="ammo_sniper",   name="כדורי צלפים",   art="ammo_sniper",   pack=10, price=150,
          desc="לרובי צלפים"),
-    dict(id="ammo_mg",     name="חגורת מקלע",   art="ammo_mg",     pack=60, price=200,
+    dict(id="ammo_mg",       name="חגורת מקלע",    art="ammo_mg",       pack=60, price=200,
          desc="למקלעים כבדים"),
 ]
 AMMO_BY_ID = {a["id"]: a for a in AMMO_TYPES}
 AMMO_BY_CAT = {
-    "אקדחים": "ammo_pistol", "תתי מקלע": "ammo_pistol", "רובי סער": "ammo_rifle",
+    "אקדחים": "ammo_pistol", "תתי מקלע": "ammo_smg", "רובי סער": "ammo_rifle",
     "רובי צייד": "ammo_shell", "רובי צלפים": "ammo_sniper", "מקלעים כבדים": "ammo_mg",
+}
+# נשקים מסוימים צורכים תחמושת אחרת מהמחלקה שלהם
+AMMO_BY_WEAPON = {
+    "ruger101": "ammo_revolver", "smith": "ammo_revolver",
+    "ak47": "ammo_ak", "aks47": "ammo_ak", "akm": "ammo_ak",
+    "akms": "ammo_ak", "type56": "ammo_ak",
 }
 
 
@@ -150,6 +162,8 @@ def weapon_ammo(weapon):
     """איזה סוג תחמושת הנשק צורך, או None אם הוא לא צורך בכלל."""
     if weapon["kind"] != "gun":
         return None
+    if weapon["id"] in AMMO_BY_WEAPON:
+        return AMMO_BY_WEAPON[weapon["id"]]
     return AMMO_BY_CAT.get(weapon["cat"])
 
 
@@ -693,6 +707,26 @@ def paint_ammo_pistol(g):
         cartridge(g, 16 + i * 15, -4 + (i % 2) * 6, 11, 5)
 
 
+def paint_ammo_revolver(g):
+    for i in range(3):
+        x, y = 16 + i * 21, -5 + (i % 2) * 7
+        cartridge(g, x, y, 13, 7, (212, 172, 78), (170, 138, 60))
+        g.box(x - 1.6, y - 1, 3, 9, (168, 132, 58), 0.6)                  # שפה בולטת
+
+
+def paint_ammo_smg(g):
+    for i in range(3):
+        cartridge(g, 14 + i * 16, -8, 10, 4.5)
+    for i in range(3):
+        cartridge(g, 20 + i * 16, 2, 10, 4.5)
+
+
+def paint_ammo_ak(g):
+    for i in range(3):
+        cartridge(g, 12 + i * 22, -5 + (i % 2) * 7, 17, 5.5,
+                  (126, 146, 92), (128, 132, 142))                        # תרמיל ירקרק
+
+
 def paint_ammo_rifle(g):
     for i in range(3):
         cartridge(g, 12 + i * 22, -5 + (i % 2) * 7, 17, 5.5, (186, 158, 66), (120, 124, 134))
@@ -811,6 +845,8 @@ ART_PAINTERS = {
     "sight": paint_sight, "laser": paint_laser, "launcher": paint_launcher,
     "wheel": paint_wheel,
     "ammo_pistol": paint_ammo_pistol, "ammo_rifle": paint_ammo_rifle,
+    "ammo_revolver": paint_ammo_revolver, "ammo_smg": paint_ammo_smg,
+    "ammo_ak": paint_ammo_ak,
     "ammo_shell": paint_ammo_shell, "ammo_sniper": paint_ammo_sniper,
     "ammo_mg": paint_ammo_mg,
 }
