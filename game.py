@@ -144,6 +144,8 @@ AMMO_TYPES = [
          desc="לרובי צלפים"),
     dict(id="ammo_mg",       name="חגורת מקלע",    art="ammo_mg",       pack=60, price=200,
          desc="למקלעים כבדים"),
+    dict(id="ammo_arrow",    name="חיצים",         art="ammo_arrow",    pack=15, price=60,
+         desc="לקשת", unit="חיצים"),
 ]
 AMMO_BY_ID = {a["id"]: a for a in AMMO_TYPES}
 AMMO_BY_CAT = {
@@ -155,6 +157,7 @@ AMMO_BY_WEAPON = {
     "ruger101": "ammo_revolver", "smith": "ammo_revolver",
     "ak47": "ammo_ak", "aks47": "ammo_ak", "akm": "ammo_ak",
     "akms": "ammo_ak", "type56": "ammo_ak",
+    "bow": "ammo_arrow",
 }
 
 
@@ -727,6 +730,15 @@ def paint_ammo_ak(g):
                   (126, 146, 92), (128, 132, 142))                        # תרמיל ירקרק
 
 
+def paint_ammo_arrow(g):
+    for i, y in enumerate((-8, 0, 8)):
+        x = 8 + (i % 2) * 6
+        g.line(x, y, x + 62, y, (168, 126, 72), 1.4)                     # מוט עץ
+        g.poly([(x + 62, y - 3), (x + 71, y), (x + 62, y + 3)], STEEL)     # ראש חץ
+        g.poly([(x, y - 3.4), (x + 8, y - 0.6), (x + 8, y + 0.6), (x, y + 3.4)],
+               (226, 72, 64))                                              # נוצות
+
+
 def paint_ammo_rifle(g):
     for i in range(3):
         cartridge(g, 12 + i * 22, -5 + (i % 2) * 7, 17, 5.5, (186, 158, 66), (120, 124, 134))
@@ -846,7 +858,7 @@ ART_PAINTERS = {
     "wheel": paint_wheel,
     "ammo_pistol": paint_ammo_pistol, "ammo_rifle": paint_ammo_rifle,
     "ammo_revolver": paint_ammo_revolver, "ammo_smg": paint_ammo_smg,
-    "ammo_ak": paint_ammo_ak,
+    "ammo_ak": paint_ammo_ak, "ammo_arrow": paint_ammo_arrow,
     "ammo_shell": paint_ammo_shell, "ammo_sniper": paint_ammo_sniper,
     "ammo_mg": paint_ammo_mg,
 }
@@ -1952,8 +1964,9 @@ class Game:
             return "%s   נזק %d-%d בכל הסביבה (יש לך %d)" % (
                 item["name"], item["dmg"][0], item["dmg"][1], self.ammo[item["id"]])
         if kind == "bullets":
-            return "%s   %s | %d כדורים בחפיסה (יש לך %d)" % (
-                item["name"], item["desc"], item["pack"], self.ammo[item["id"]])
+            return "%s   %s | %d %s בחפיסה (יש לך %d)" % (
+                item["name"], item["desc"], item["pack"], item.get("unit", "כדורים"),
+                self.ammo[item["id"]])
         if kind in ("tool", "gear", "wheel"):
             return "%s   %s" % (item["name"], item["desc"])
         return "%s   מחזירה %d חיים (יש לך %d)" % (
@@ -2255,7 +2268,8 @@ class Game:
         ammo_id = weapon_ammo(self.weapon())
         if ammo_id:
             left = self.ammo[ammo_id]
-            parts.insert(3, ("כדורים: %d" % left,
+            unit = AMMO_BY_ID[ammo_id].get("unit", "כדורים")
+            parts.insert(3, ("%s: %d" % (unit, left),
                              COL_TEXT if left > 10 else (COL_HP_ORANGE if left else COL_HP_RED)))
         if self.sick:
             parts.insert(1, ("חולה!", (120, 220, 120)))
