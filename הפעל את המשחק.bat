@@ -22,7 +22,7 @@ exit /b 1
 
 :FOUND
 rem --- בודקים שהספרייה של המשחק מותקנת, ואם לא - מתקינים ---
-%PY% -c "import pygame" >nul 2>&1
+%PY% -c "import pygame, pydantic" >nul 2>&1
 if not errorlevel 1 goto RUN
 
 echo.

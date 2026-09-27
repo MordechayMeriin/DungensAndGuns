@@ -12,7 +12,21 @@
 
 לחיצה כפולה על הקובץ **הפעל את המשחק.bat** בתיקייה. נפתח חלון של המשחק.
 
-**מקשים:** חצים = תזוזה | רווח = ירי | Q = איסוף משאב/פתיחת תיבה/מעבר לשלב הבא | T = שתיית תרופה | Y = חנות (קונים בלחיצת עכבר) | 1-9 או Z/X = החלפת נשק | M = להדליק/לכבות קולות | R אחרי מוות = להתחיל מחדש | Esc = יציאה
+**מקשים:** חצים = תזוזה | רווח = ירי | Q = איסוף משאב/פתיחת תיבה/מעבר לשלב הבא | T = שתיית תרופה | Y = חנות (קונים בלחיצת עכבר) | 1-9 או Z/X = החלפת נשק | M = להדליק/לכבות קולות | R אחרי מוות = להתחיל מחדש | Esc = תפריט ראשי (משחק חדש, שמירה, טעינה, יציאה)
+
+### Code structure (for Claude — keep to it)
+
+`game.py` is only a launcher; all code lives in the `dungeons_and_guns/` package:
+
+- `models/` — pydantic models. Catalog items (`Weapon`, `Gear`, ...) are frozen; world entities and `GameState` are mutable. Entities carry a `uid` so equal-looking objects stay distinct.
+- `data/` — game content (weapons, ammo, gear, tools, resources, wheel). New items go here; `Catalog` validates cross-references at startup.
+- `world/` — maze generation and level building.
+- `systems/` — game rules as functions over `GameState`. **Must not import pygame.** Feedback goes through `state.say()` / `state.play()`; time comes from `state.now`.
+- `ui/` — all drawing (world, HUD, shop, wheel, overlays, item icons). Reads state, never changes game rules.
+- `saves.py` — save slots: `GameState` ↔ JSON in `saves/` (gitignored). Bump `SAVE_VERSION` when a `GameState` change breaks old files. All timestamps use the game clock `state.now` (advanced by the app, frozen in menus), never wall-clock ticks, so they survive save/load.
+- `audio/` — synthesized sounds. `app.py` — window, screens (menu / save-load slots / game), input → `PlayerInput`, main loop. `controls.py` — key bindings.
+
+Run tests with `python -m pytest tests` after changing rules; add a test for new systems logic.
 
 ---
 
