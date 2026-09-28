@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""חיים, מחלה ותרופות."""
+"""חיים, מחלה, תרופות ואוכל."""
 
 from ..data import CATALOG
 from ..models import GameState
@@ -8,6 +8,7 @@ from .inventory import damage_multiplier
 SICK_TICK_MS = 1800
 SICK_NAG_MS = 7000
 POTION_COOLDOWN_MS = 350
+MEAL_COOLDOWN_MS = 350
 
 
 def _check_death(state: GameState) -> None:
@@ -51,8 +52,8 @@ def update_sickness(state: GameState) -> None:
         state.say("אתה חולה! שתה תרופה גדולה (T)")
 
 
-def drink_potion(state: GameState) -> None:
-    """T - שותה את התרופה הגדולה ביותר שיש, רק אם חסרים חיים."""
+def drink_potion(state: GameState, potion_id: str | None = None) -> None:
+    """שותה תרופה, רק אם חסרים חיים. בלי potion_id (מקש T) - הגדולה ביותר שיש."""
     player, inv = state.player, state.inventory
     if state.now - player.last_potion < POTION_COOLDOWN_MS:
         return
@@ -65,7 +66,14 @@ def drink_potion(state: GameState) -> None:
         state.play("no", gap=400)
         state.say("אתה חולה - רק תרופה גדולה תעזור, וקנית רק קטנות")
         return
-    order = ("large",) if player.sick else ("large", "medium", "small")
+    if potion_id is None:
+        order = ("large",) if player.sick else ("large", "medium", "small")
+    elif player.sick and potion_id != "large":
+        state.play("no", gap=400)
+        state.say("אתה חולה - רק תרופה גדולה תעזור")
+        return
+    else:
+        order = (potion_id,)
     for pid in order:
         if inv.potion_count(pid) > 0:
             potion = CATALOG.potion(pid)
@@ -79,4 +87,37 @@ def drink_potion(state: GameState) -> None:
                 state.say("שתית %s! +%d חיים" % (potion.name, potion.heal))
             return
     state.play("no", gap=400)
-    state.say("אין לך תרופות - קנה בחנות!")
+    if potion_id is None:
+        state.say("אין לך תרופות - קנה בחנות!")
+    else:
+        state.say("נגמרה לך %s - קנה בחנות!" % CATALOG.potion(potion_id).name)
+
+
+def eat(state: GameState, food_id: str | None = None) -> None:
+    """אוכל. בלי food_id (מקש F) - המנה שהכי מתאימה לחיים שחסרים (בלי לבזבז עוגה על שריטה).
+
+    אוכל לא מרפא מחלה - בשביל זה צריך תרופה גדולה.
+    """
+    player, inv = state.player, state.inventory
+    if state.now - player.last_meal < MEAL_COOLDOWN_MS:
+        return
+    player.last_meal = state.now
+    have = [f for f in CATALOG.foods if inv.food_count(f.id) > 0
+            and (food_id is None or f.id == food_id)]
+    if not have:
+        state.play("no", gap=400)
+        state.say("אין לך אוכל - הכן בסדנה (Y)")
+        return
+    if player.hp >= player.max_hp:
+        state.play("no", gap=400)
+        state.say("אתה שבע - החיים שלך מלאים")
+        return
+    lacking = player.max_hp - player.hp
+    enough = [f for f in have if f.heal >= lacking]
+    food = min(enough, key=lambda f: f.heal) if enough else max(have, key=lambda f: f.heal)
+    inv.food[food.id] -= 1
+    if not inv.food[food.id]:
+        del inv.food[food.id]
+    player.hp = min(player.max_hp, player.hp + food.heal)
+    state.play("potion")
+    state.say("אכלת %s! +%d חיים" % (food.name, food.heal))

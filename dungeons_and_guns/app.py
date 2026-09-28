@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """החלון של המשחק והלולאה הראשית: קלט -> עדכון -> קולות -> ציור.
 
-The app is a small state machine over three screens: the main menu, the save/load slot
-picker, and the game itself. Esc from the game opens the menu; the game clock only
-advances while the game screen is showing.
+The app is a small state machine over four screens: the instructions (shown on every
+launch), the main menu, the save/load slot picker, and the game itself. Esc from the game
+opens the menu; the game clock only advances while the game screen is showing.
 """
 
 from enum import StrEnum
@@ -17,11 +17,14 @@ from .models import GameState
 from .saves import SaveError, SaveStore, SlotInfo
 from .systems import progression, shop, simulation
 from .systems import wheel as wheel_system
+from .ui.bag_view import BagView
 from .ui.canvas import Canvas
-from .ui.hud import draw_hud
+from .ui.help_view import draw_help
+from .ui.hud import draw_hud, game_hotbar_rects
 from .ui.menu_view import MenuOption, MenuView
 from .ui.overlays import draw_game_over, draw_inspect
 from .ui.shop_view import SCROLL_KEYS, ShopView
+from .ui.slots import slot_at
 from .ui.wheel_view import draw_wheel
 from .ui.world_view import WorldView
 
@@ -29,6 +32,7 @@ MAX_FRAME_MS = 100          # אם החלון נתקע (גרירה וכו') - ל
 
 
 class Screen(StrEnum):
+    HELP = "help"
     MENU = "menu"
     SLOTS = "slots"
     GAME = "game"
@@ -49,12 +53,13 @@ class App:
         self.saves = SaveStore()
         self.world_view = WorldView(self.canvas)
         self.shop_view = ShopView(self.canvas)
+        self.bag_view = BagView(self.canvas)
         self.menu = MenuView(self.canvas)
         self.state: GameState | None = None     # None = עוד לא התחיל משחק
         self.screen = Screen.MENU
         self.slot_mode = SlotMode.LOAD
         self.running = True
-        self.open_menu()
+        self.screen = Screen.HELP           # כל הפעלה מתחילה בהוראות
 
     # ---------- מסכים ----------
     @property
@@ -71,6 +76,7 @@ class App:
         has_saves = self.saves.any_loadable()
         options.append(MenuOption(id="load", label="טעינת משחק", enabled=has_saves,
                                   detail="" if has_saves else "אין משחקים שמורים"))
+        options.append(MenuOption(id="help", label="הוראות"))
         options.append(MenuOption(id="exit", label="יציאה"))
         self.menu.show(TITLE, options, subtitle="תפריט ראשי")
         self.menu.status = status
@@ -108,6 +114,7 @@ class App:
     def start_game(self, state: GameState) -> None:
         self.state = state
         self.shop_view.open = False
+        self.bag_view.open = False
         self.screen = Screen.GAME
 
     # ---------- פעולות תפריט ----------
@@ -122,6 +129,8 @@ class App:
                     self.open_slots(SlotMode.SAVE)
                 case "load":
                     self.open_slots(SlotMode.LOAD)
+                case "help":
+                    self.screen = Screen.HELP
                 case "exit":
                     self.running = False
         elif option.id == "back":
@@ -157,6 +166,9 @@ class App:
     def handle_event(self, event: pygame.event.Event) -> None:
         if event.type == pygame.QUIT:
             self.running = False
+        elif self.screen == Screen.HELP:
+            if event.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
+                self.open_menu()
         elif self.screen == Screen.GAME:
             self.handle_game_event(event)
         else:
@@ -183,8 +195,13 @@ class App:
         state = self.state
         if event.type == pygame.KEYDOWN:
             self.handle_game_key(event.key)
-        elif event.type == pygame.MOUSEWHEEL and self.shop_view.open:
-            self.shop_view.scroll_by(-event.y * 120)
+        elif event.type == pygame.MOUSEWHEEL:
+            if self.shop_view.open:
+                self.shop_view.scroll_by(-event.y * 120)
+            elif self.bag_view.open:
+                self.bag_view.scroll_by(-event.y * 60)
+            elif state.wheel is None:
+                state.inventory.cycle_slot(-event.y)
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if state.wheel is not None:
                 wheel_system.close(state)
@@ -194,8 +211,27 @@ class App:
                     shop.buy(state, row)
                     if state.wheel is not None:       # קנו סיבוב בגלגל - החנות נסגרת
                         self.shop_view.open = False
+            elif self.bag_view.open:
+                self.bag_view.press(state, event.pos)
+            elif (slot := slot_at(game_hotbar_rects(), event.pos)) is not None:
+                state.inventory.select_slot(slot)
             elif not state.game_over:
                 simulation.inspect_enemy_at(state, *self.world_view.to_world(event.pos))
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1 and self.bag_view.open:
+            self.drop(self.bag_view.release(event.pos))
+
+    def drop(self, drop) -> None:
+        """סוף גרירה בתיק: שמים במשבצת, מחליפים בין משבצות, או מוציאים מהשורה."""
+        if drop is None:
+            return
+        inv = self.state.inventory
+        if drop.to_slot is None:
+            if drop.from_slot is not None:
+                inv.clear_slot(drop.from_slot)
+        elif drop.to_slot == drop.from_slot:
+            inv.select_slot(drop.to_slot)             # סתם לחיצה על משבצת - בוחרים אותה
+        else:
+            inv.set_slot(drop.to_slot, drop.item)
 
     def handle_game_key(self, key: int) -> None:
         state, inv = self.state, self.state.inventory
@@ -205,18 +241,24 @@ class App:
             wheel_system.close(state)
         elif self.shop_view.open and key in SCROLL_KEYS:
             self.shop_view.scroll_by(SCROLL_KEYS[key])
+        elif self.bag_view.open and key in SCROLL_KEYS:
+            self.bag_view.scroll_by(SCROLL_KEYS[key])
         elif key == controls.SHOP and not state.game_over:
+            self.bag_view.open = False
             self.shop_view.toggle()
+        elif key == controls.BAG and not state.game_over:
+            self.shop_view.open = False
+            self.bag_view.toggle()
         elif key == controls.SOUND:
             state.say("הקולות דולקים" if self.sfx.toggle() else "הקולות כבויים")
         elif key == controls.RESTART and state.game_over:
             self.start_game(progression.new_game())
-        elif key == controls.NEXT_WEAPON:
-            inv.cycle_weapon(1)
-        elif key == controls.PREV_WEAPON:
-            inv.cycle_weapon(-1)
-        elif (slot := controls.weapon_slot(key)) is not None:
-            inv.select_weapon(slot)
+        elif key == controls.NEXT_SLOT:
+            inv.cycle_slot(1)
+        elif key == controls.PREV_SLOT:
+            inv.cycle_slot(-1)
+        elif (slot := controls.hotbar_slot(key)) is not None:
+            inv.select_slot(slot)
 
     # ---------- ציור ----------
     def draw_game(self) -> None:
@@ -228,10 +270,16 @@ class App:
             draw_wheel(self.canvas, state.wheel)
         elif self.shop_view.open:
             self.shop_view.draw(state)
+        elif self.bag_view.open:
+            self.bag_view.draw(state, pygame.mouse.get_pos())
         if state.game_over:
             draw_game_over(self.canvas, state)
 
     def draw(self) -> None:
+        if self.screen == Screen.HELP:
+            draw_help(self.canvas)
+            pygame.display.flip()
+            return
         if self.state is not None:
             self.draw_game()
         if self.screen != Screen.GAME:
@@ -245,7 +293,7 @@ class App:
         state = self.state
         state.now += min(elapsed_ms, MAX_FRAME_MS)
         simulation.step(state, controls.read_player_input(pygame.key.get_pressed()),
-                        shop_open=self.shop_view.open)
+                        window_open=self.shop_view.open or self.bag_view.open)
         for cue in state.feedback.drain_sounds():
             self.sfx.play(cue.name, gap=cue.gap)
         state.feedback.tick()

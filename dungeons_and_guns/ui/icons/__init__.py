@@ -20,6 +20,7 @@ PAINTERS = {
     "dagger": wp.paint_dagger, "sword": wp.paint_sword, "spear": wp.paint_spear,
     "bow": wp.paint_bow, "sling": wp.paint_sling, "shuriken": wp.paint_shuriken,
     "grenade": wp.paint_grenade, "smoke": wp.paint_smoke,
+    "tnt": it.paint_tnt, "semtex": it.paint_semtex, "key": it.paint_key,
     "shield": it.paint_shield, "vest": it.paint_vest, "helmet": it.paint_helmet,
     "sight": it.paint_sight, "laser": it.paint_laser, "launcher": it.paint_launcher,
     "wheel": it.paint_wheel,
@@ -33,6 +34,16 @@ PAINTERS = {
     "potion_small": lambda g: it.paint_potion(g, 0),
     "potion_medium": lambda g: it.paint_potion(g, 1),
     "potion_large": lambda g: it.paint_potion(g, 2),
+    "bread": it.paint_bread, "omelette": it.paint_omelette,
+    "cheese": it.paint_cheese, "cake": it.paint_cake, "fish": it.paint_fish,
+    # חומרים - המפתח הוא "mat_" + סוג המשאב
+    "mat_tree": it.paint_mat_log, "mat_bricks": it.paint_mat_brick,
+    "mat_copper": it.paint_mat_copper, "mat_iron": it.paint_mat_iron,
+    "mat_gas": it.paint_mat_gas, "mat_gold": it.paint_mat_gold,
+    "mat_diamond": it.paint_mat_diamond, "mat_wheat": it.paint_mat_wheat,
+    "mat_cotton": it.paint_mat_cotton, "mat_cow": it.paint_mat_milk,
+    "mat_sheep": it.paint_mat_wool, "mat_chicken": it.paint_mat_egg,
+    "mat_volcano": it.paint_mat_lava,
 }
 
 # פריטים שיש להם תצלום אמיתי בשם קובץ אחר
@@ -65,6 +76,15 @@ def fit_image(image: pygame.Surface, size: tuple[int, int]) -> pygame.Surface:
     return out
 
 
+LONG_ICON = 3.0         # תמונה ארוכה פי כמה מגובהה - מסובבים אותה באלכסון בתוך ריבוע
+
+
+def crop_to_content(image: pygame.Surface) -> pygame.Surface:
+    """חותך את השוליים השקופים, כך שתמונה קטנה (ביצה, תרופה) תמלא את הריבוע."""
+    rect = image.get_bounding_rect()
+    return image.subsurface(rect).copy() if rect.w and rect.h else image
+
+
 def paint_icon(art: str, size: tuple[int, int]) -> pygame.Surface:
     work = pygame.Surface((ICON_W * ICON_SCALE, ICON_H * ICON_SCALE), pygame.SRCALPHA)
     PAINTERS.get(art, wp.paint_glock)(IconPainter(work, ICON_SCALE))
@@ -76,7 +96,7 @@ class IconCache:
 
     def __init__(self):
         self._photos: dict[str, pygame.Surface | None] = {}
-        self._icons: dict[tuple[str, tuple[int, int]], pygame.Surface] = {}
+        self._icons: dict[tuple[str, tuple], pygame.Surface] = {}
 
     def get(self, item: ItemBase, size: tuple[int, int]) -> pygame.Surface:
         key = (item.id, size)
@@ -85,4 +105,21 @@ class IconCache:
                 self._photos[item.id] = load_photo(item.id)
             photo = self._photos[item.id]
             self._icons[key] = fit_image(photo, size) if photo else paint_icon(item.art, size)
+        return self._icons[key]
+
+    def square(self, item: ItemBase | None, side: int, art: str = "") -> pygame.Surface:
+        """תמונה לריבוע של השורה/התיק: בלי שוליים, ממורכזת. בלי item - לפי art (חומרים)."""
+        item_id = item.id if item else art
+        key = (item_id, ("square", side))
+        if key not in self._icons:
+            photo = None
+            if item is not None:
+                if item_id not in self._photos:
+                    self._photos[item_id] = load_photo(item_id)
+                photo = self._photos[item_id]
+            big = crop_to_content(photo or paint_icon(item.art if item else art,
+                                                      (ICON_W * 3, ICON_H * 3)))
+            if big.get_width() > LONG_ICON * big.get_height():
+                big = crop_to_content(pygame.transform.rotozoom(big, 35, 1.0))   # חרב, חנית, רובה
+            self._icons[key] = fit_image(big, (side, side))
         return self._icons[key]

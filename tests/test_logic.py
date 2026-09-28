@@ -9,9 +9,11 @@ import pytest
 from pydantic import ValidationError
 
 from dungeons_and_guns.data import CATALOG, Catalog
-from dungeons_and_guns.models import (Crate, CrateKind, PlayerInput, Tile, Weapon,
-                                      WeaponCategory, WeaponKind, WheelOutcome)
-from dungeons_and_guns.systems import combat, crates, health, progression, shop, simulation
+from dungeons_and_guns.models import (HOTBAR_SIZE, Crate, CrateKind, Inventory, ItemKind,
+                                      PlayerInput, Recipe, Resource, ResourceKind, SlotItem, Tile,
+                                      Weapon, WeaponCategory, WeaponKind, WheelOutcome)
+from dungeons_and_guns.systems import (combat, crafting, crates, health, interaction, progression,
+                                       ranks, shop, simulation)
 from dungeons_and_guns.systems import wheel as wheel_system
 from dungeons_and_guns.systems.shop import ShopKind, ShopRow
 from dungeons_and_guns.world import START_TILE, build_level, make_enemy, path_exists
@@ -136,6 +138,7 @@ def test_only_large_potion_cures_sickness(state):
 # ---------- חנות ----------
 def test_buying_weapon_gives_ammo_pack(state):
     state.inventory.money = 5000
+    state.player.points = 10_000                        # דרגה מספיק גבוהה לרובי סער
     m16 = CATALOG.weapon("m16")
     assert shop.buy(state, ShopRow(kind=ShopKind.WEAPON, item=m16))
     assert "m16" in state.inventory.weapons
@@ -153,6 +156,311 @@ def test_shop_marks_owned_items(state):
     rows = [r for s in shop.shop_sections(state) for r in s.rows]
     glock = next(r for r in rows if r.item.id == "glock19")
     assert glock.owned
+
+
+# ---------- דרגות ----------
+def test_better_enemy_weapon_gives_more_points():
+    assert ranks.kill_points(CATALOG.weapon("minigun")) > ranks.kill_points(CATALOG.weapon("m16"))
+    assert ranks.kill_points(CATALOG.weapon("m16")) > ranks.kill_points(CATALOG.weapon("glock19"))
+    assert ranks.kill_points(CATALOG.weapon("glock19")) > 0
+
+
+def test_killing_enemy_gives_points(state):
+    enemy = make_enemy(state.level, 100, 100)
+    state.level.enemies.append(enemy)
+    combat.damage_enemy(state, enemy, 10_000)
+    assert state.player.points == ranks.kill_points(enemy.weapon)
+    assert "נקודות" in state.feedback.message
+
+
+def test_promotion_is_announced(state):
+    state.player.points = CATALOG.unlock_rank("uzi").points - 1
+    enemy = make_enemy(state.level, 100, 100)
+    state.level.enemies.append(enemy)
+    combat.damage_enemy(state, enemy, 10_000)
+    assert "uzi" in ranks.current_rank(state).unlocks
+    assert "עוזי" in state.feedback.message
+    assert "עלית לדרגת" in state.feedback.message
+    assert any(c.name == "rank_up" for c in state.feedback.sounds)
+
+
+@pytest.mark.parametrize("weapon_id", ["uzi", "m16", "dragunov", "minigun"])
+def test_strong_weapons_need_rank(state, weapon_id):
+    state.inventory.money = 100_000
+    row = ShopRow(kind=ShopKind.WEAPON, item=CATALOG.weapon(weapon_id))
+    assert not shop.buy(state, row)
+    assert weapon_id not in state.inventory.weapons
+    assert state.inventory.money == 100_000
+    assert "דרגת" in state.feedback.message
+    state.player.points = CATALOG.unlock_rank(weapon_id).points
+    assert shop.buy(state, row)
+    assert weapon_id in state.inventory.weapons
+
+
+@pytest.mark.parametrize("weapon_id", ["glock17", "shotgun", "sword", "bow"])
+def test_basic_weapons_open_from_start(state, weapon_id):
+    state.inventory.money = 100_000
+    assert shop.buy(state, ShopRow(kind=ShopKind.WEAPON, item=CATALOG.weapon(weapon_id)))
+
+
+def test_shop_shows_locked_weapons(state):
+    rows = {r.item.id: r for s in shop.shop_sections(state) for r in s.rows}
+    assert rows["uzi"].need_rank.name == 'רב"ט'
+    assert rows["m16"].need_rank.name == 'סמ"ר'
+    assert rows["glock17"].need_rank is None
+
+
+def test_each_rank_opens_weapons_from_one_category():
+    for rank in CATALOG.ranks:
+        assert len({CATALOG.weapon(wid).cat for wid in rank.unlocks}) <= 1
+
+
+def test_all_strong_weapons_are_locked():
+    strong = {WeaponCategory.SMGS, WeaponCategory.RIFLES, WeaponCategory.SNIPERS,
+              WeaponCategory.HEAVY}
+    for w in CATALOG.weapons:
+        if w.cat in strong:
+            assert CATALOG.unlock_rank(w.id) is not None, w.id
+
+
+def test_rank_opens_weapons_gradually(state):
+    state.inventory.money = 100_000
+    state.player.points = CATALOG.unlock_rank("uzi").points
+    assert shop.buy(state, ShopRow(kind=ShopKind.WEAPON, item=CATALOG.weapon("uzi")))
+    assert not shop.buy(state, ShopRow(kind=ShopKind.WEAPON, item=CATALOG.weapon("mp7")))
+
+
+def test_catalog_rejects_unordered_ranks():
+    bad = list(reversed(CATALOG.ranks))
+    with pytest.raises(ValidationError):
+        Catalog(**{**CATALOG.model_dump(), "ranks": bad})
+
+
+# ---------- שורת המספרים ----------
+def weapon_slot(weapon_id):
+    return SlotItem(kind=ItemKind.WEAPON, id=weapon_id)
+
+
+def test_new_game_starts_with_pistol_in_first_slot(state):
+    inv = state.inventory
+    assert len(inv.hotbar) == HOTBAR_SIZE
+    assert inv.hotbar[0] == weapon_slot("glock19") and inv.selected == 0
+    assert all(slot is None for slot in inv.hotbar[1:])
+
+
+def test_new_things_go_to_next_empty_slot(state):
+    state.inventory.money = 100_000
+    shop.buy(state, ShopRow(kind=ShopKind.WEAPON, item=CATALOG.weapon("sword")))
+    state.inventory.add_potion("small")
+    state.inventory.add_potion("small")                 # אותה תרופה - לא נכנסת פעמיים
+    assert state.inventory.hotbar[1] == weapon_slot("sword")
+    assert state.inventory.hotbar[2] == SlotItem(kind=ItemKind.POTION, id="small")
+    assert state.inventory.hotbar[3] is None
+
+
+def test_full_hotbar_keeps_things_in_bag(state):
+    inv = state.inventory
+    for i in range(1, HOTBAR_SIZE):
+        inv.set_slot(i, SlotItem(kind=ItemKind.FOOD, id="bread"))    # מחליף - נשאר אחד
+    for i, wid in enumerate(["dagger", "sword", "spear", "bow", "slingshot", "shotgun",
+                             "glock17", "beretta", "cz75", "czp"]):
+        if weapon_slot(wid) not in inv.hotbar and None in inv.hotbar:
+            inv.set_slot(inv.hotbar.index(None), weapon_slot(wid))
+    assert None not in inv.hotbar
+    inv.add_potion("large")
+    assert inv.potion_count("large") == 1
+    assert SlotItem(kind=ItemKind.POTION, id="large") not in inv.hotbar
+
+
+def test_set_slot_swaps_when_item_already_in_row(state):
+    inv = state.inventory
+    inv.add_potion("small")                             # משבצת 1
+    inv.set_slot(1, weapon_slot("glock19"))             # האקדח עובר ל-1, התרופה ל-0
+    assert inv.hotbar[0] == SlotItem(kind=ItemKind.POTION, id="small")
+    assert inv.hotbar[1] == weapon_slot("glock19")
+    inv.clear_slot(0)
+    assert inv.hotbar[0] is None
+
+
+def test_hotbar_rejects_things_you_cannot_use():
+    with pytest.raises(ValidationError):
+        SlotItem(kind=ItemKind.AMMO, id="ammo_pistol")
+
+
+def test_space_uses_what_is_selected(state):
+    inv = state.inventory
+    inv.add_potion("medium")                            # משבצת 1
+    inv.add_food("bread")                               # משבצת 2
+    state.player.hp = 30
+    inv.select_slot(1)
+    simulation.use_selected(state)
+    assert inv.potion_count("medium") == 0 and state.player.hp == 90
+    state.now += 1000
+    inv.select_slot(2)
+    simulation.use_selected(state)
+    assert inv.food_count("bread") == 0 and state.player.hp == 100
+    inv.select_slot(5)                                  # משבצת ריקה - לא קורה כלום
+    simulation.use_selected(state)
+    assert not state.level.bullets
+
+
+def test_selected_small_potion_does_not_cure(state):
+    health.infect(state)
+    state.inventory.add_potion("small")
+    state.inventory.add_potion("large")
+    state.player.hp = 50
+    state.inventory.select_slot(1)                      # התרופה הקטנה
+    simulation.use_selected(state)
+    assert state.player.sick and state.inventory.potion_count("small") == 1
+
+
+def test_cycle_slot_wraps_around(state):
+    state.inventory.cycle_slot(-1)
+    assert state.inventory.selected == HOTBAR_SIZE - 1
+    state.inventory.cycle_slot(1)
+    assert state.inventory.selected == 0
+
+
+def test_old_save_inventory_gets_a_hotbar():
+    inv = Inventory.model_validate({"weapons": ["glock19", "m16"], "weapon_index": 1,
+                                    "potions": {"small": 2}})
+    assert inv.hotbar[:3] == [weapon_slot("glock19"), weapon_slot("m16"),
+                              SlotItem(kind=ItemKind.POTION, id="small")]
+    assert inv.selected == 1
+
+
+# ---------- משאבים ----------
+def test_fishing_gives_money_and_a_fish_to_eat(state):
+    state.inventory.tools.add("rod")
+    money = state.inventory.money
+    interaction.go_fishing(state, (3, 3))
+    assert state.inventory.money > money
+    assert state.inventory.food_count("fish") == 1
+    assert SlotItem(kind=ItemKind.FOOD, id="fish") in state.inventory.hotbar
+    state.player.hp = 50
+    health.eat(state, "fish")
+    assert state.player.hp == 50 + CATALOG.food("fish").heal
+    assert state.inventory.food_count("fish") == 0
+
+
+def test_no_fish_while_fish_are_away(state):
+    state.inventory.tools.add("rod")
+    interaction.go_fishing(state, (3, 3))
+    interaction.go_fishing(state, (3, 3))               # הדגים עוד לא חזרו
+    assert state.inventory.food_count("fish") == 1
+
+
+def test_harvest_gives_money_and_material(state):
+    state.inventory.tools.add("pickaxe")
+    iron = Resource(x=state.player.x, y=state.player.y, kind=ResourceKind.IRON)
+    state.level.resources.append(iron)
+    money = state.inventory.money
+    interaction.harvest(state, iron)
+    assert state.inventory.money > money
+    assert state.inventory.material_count(ResourceKind.IRON) == 1
+    assert "מטיל ברזל" in state.feedback.message
+    assert iron not in state.level.resources
+
+
+def test_harvest_without_tool_gives_nothing(state):
+    tree = Resource(x=state.player.x, y=state.player.y, kind=ResourceKind.TREE)
+    state.level.resources.append(tree)
+    interaction.harvest(state, tree)
+    assert state.inventory.material_count(ResourceKind.TREE) == 0
+    assert tree in state.level.resources
+
+
+# ---------- סדנה ----------
+def recipe_for(item_id):
+    return next(r for r in CATALOG.recipes if r.item == item_id)
+
+
+def test_workshop_makes_no_weapons_or_potions():
+    assert all(r.kind in (ItemKind.AMMO, ItemKind.GEAR, ItemKind.FOOD, ItemKind.KEY)
+               for r in CATALOG.recipes)
+
+
+def test_craft_food_then_eat_it(state):
+    recipe = recipe_for("bread")
+    state.inventory.add_material(ResourceKind.WHEAT, 2)
+    assert crafting.craft(state, recipe)
+    assert state.inventory.food_count("bread") == 1
+    state.player.hp = 50
+    health.eat(state)
+    assert state.player.hp == 50 + CATALOG.food("bread").heal
+    assert state.inventory.food == {}
+
+
+def test_eat_picks_food_that_fits_missing_hp(state):
+    state.inventory.add_food("bread")                   # 15
+    state.inventory.add_food("cake")                    # 35
+    state.player.hp = state.player.max_hp - 10
+    health.eat(state)
+    assert state.inventory.food_count("bread") == 0     # לא מבזבזים עוגה על 10 חיים
+    assert state.inventory.food_count("cake") == 1
+    state.now += 1000
+    state.player.hp = 20
+    health.eat(state)
+    assert state.inventory.food_count("cake") == 0      # חסר הרבה - העוגה
+
+
+def test_eat_with_full_hp_keeps_food(state):
+    state.inventory.add_food("cheese")
+    health.eat(state)
+    assert state.inventory.food_count("cheese") == 1
+
+
+def test_food_does_not_cure_sickness(state):
+    health.infect(state)
+    state.inventory.add_food("cake")
+    state.player.hp = 50
+    health.eat(state)
+    assert state.player.sick
+
+
+def test_craft_uses_up_materials(state):
+    recipe = recipe_for("helmet")                        # 2 מטילי ברזל
+    state.inventory.add_material(ResourceKind.IRON, 3)
+    money = state.inventory.money
+    assert crafting.craft(state, recipe)
+    assert "helmet" in state.inventory.gear
+    assert state.inventory.material_count(ResourceKind.IRON) == 1
+    assert state.inventory.money == money               # בסדנה לא משלמים כסף
+    assert not crafting.craft(state, recipe)             # קסדה מכינים רק פעם אחת
+
+
+def test_craft_without_enough_materials_fails(state):
+    recipe = recipe_for("ammo_pistol")
+    state.inventory.add_material(ResourceKind.COPPER, 1)
+    before = state.inventory.ammo_count("ammo_pistol")
+    assert not crafting.craft(state, recipe)
+    assert crafting.missing(state, recipe) == {ResourceKind.GAS: 1}
+    assert state.inventory.ammo_count("ammo_pistol") == before
+    assert state.inventory.material_count(ResourceKind.COPPER) == 1
+    assert "מיכל גז" in state.feedback.message
+
+
+def test_craft_ammo_gives_a_full_pack(state):
+    recipe = recipe_for("ammo_arrow")
+    for kind, n in recipe.needs.items():
+        state.inventory.add_material(kind, n)
+    before = state.inventory.ammo_count("ammo_arrow")
+    row = next(r for r in shop.shop_sections(state)[0].rows if r.recipe == recipe)
+    assert shop.buy(state, row)
+    assert state.inventory.ammo_count("ammo_arrow") == before + CATALOG.ammo("ammo_arrow").pack
+    assert state.inventory.materials == {}
+
+
+def test_catalog_rejects_recipe_for_unknown_item():
+    bad = CATALOG.recipes + [Recipe(kind=ItemKind.GEAR, item="jetpack", needs={ResourceKind.IRON: 1})]
+    with pytest.raises(ValidationError):
+        Catalog(**{**CATALOG.model_dump(), "recipes": bad})
+
+
+def test_catalog_rejects_recipe_needing_cave():
+    bad = CATALOG.recipes + [Recipe(kind=ItemKind.GEAR, item="helmet", needs={ResourceKind.CAVE: 1})]
+    with pytest.raises(ValidationError):
+        Catalog(**{**CATALOG.model_dump(), "recipes": bad})
 
 
 # ---------- תיבות וגלגל ----------
@@ -183,6 +491,23 @@ def test_wheel_heal_outcome(state):
     assert state.player.hp == state.player.max_hp
 
 
+def test_wheel_weapon_respects_rank(state):
+    slice_ = next(s for s in CATALOG.wheel_slices if s.id == WheelOutcome.WEAPON)
+    for _ in range(40):
+        wheel_system.apply(state, slice_)
+    assert state.inventory.weapons
+    assert all(CATALOG.unlock_rank(w) is None for w in state.inventory.weapons)
+    assert "הדרגה שלך" in wheel_system.apply(state, slice_)   # כל הנשק הפתוח כבר אצלך
+
+
+def test_wheel_weapon_opens_up_with_rank(state):
+    state.player.points = CATALOG.ranks[-1].points
+    slice_ = next(s for s in CATALOG.wheel_slices if s.id == WheelOutcome.WEAPON)
+    for _ in range(60):
+        wheel_system.apply(state, slice_)
+    assert any(CATALOG.unlock_rank(w) is not None for w in state.inventory.weapons)
+
+
 # ---------- סימולציה ----------
 def test_simulation_runs_many_frames(state):
     random.seed(7)
@@ -197,5 +522,5 @@ def test_simulation_runs_many_frames(state):
 
 def test_paused_while_shop_open(state):
     x = state.player.x
-    simulation.step(state, PlayerInput(dx=1), shop_open=True)
+    simulation.step(state, PlayerInput(dx=1), window_open=True)
     assert state.player.x == x

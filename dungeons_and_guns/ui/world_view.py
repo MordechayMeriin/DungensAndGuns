@@ -7,7 +7,7 @@ import pygame
 
 from ..config import SCREEN_H, SCREEN_W, TILE
 from ..data import CATALOG
-from ..models import GameState, Tile
+from ..models import GameState, Tile, WeaponKind
 from ..systems.inventory import current_weapon
 from . import colors
 from .canvas import Canvas
@@ -66,6 +66,19 @@ class WorldView:
                 tile = level.grid[gy][gx]
                 if tile == Tile.WALL:
                     pygame.draw.rect(screen, colors.WALL, rect)
+                elif tile == Tile.ARMORED:
+                    pygame.draw.rect(screen, colors.ARMORED, rect)
+                    pygame.draw.rect(screen, colors.ARMORED_EDGE, rect.inflate(-4, -4), 2)
+                    for cx, cy in ((7, 7), (TILE - 8, 7), (7, TILE - 8), (TILE - 8, TILE - 8)):
+                        pygame.draw.circle(screen, colors.ARMORED_EDGE, (rect.x + cx, rect.y + cy), 2)
+                elif tile == Tile.GATE:
+                    pygame.draw.rect(screen, colors.FLOOR_A, rect)
+                    pygame.draw.rect(screen, colors.GATE, rect.inflate(-2, -2), 3, border_radius=3)
+                    for i in range(1, 4):
+                        x = rect.x + i * TILE // 4
+                        pygame.draw.line(screen, colors.GATE, (x, rect.y + 2), (x, rect.bottom - 3), 3)
+                    pygame.draw.circle(screen, colors.EXIT, rect.center, 5)            # מנעול
+                    pygame.draw.circle(screen, (60, 40, 10), rect.center, 2)
                 elif tile.is_water:
                     pygame.draw.rect(screen, colors.WATER if (gx + gy) % 2 == 0 else colors.WATER_ALT, rect)
                     pygame.draw.line(screen, (70, 130, 200),
@@ -140,11 +153,30 @@ class WorldView:
             pygame.draw.circle(screen, (255, 224, 102) if b.from_player else (255, 102, 102),
                                (sx(b.x), sy(b.y)), 3)
         for gr in state.level.grenades:
+            if gr.weapon.kind == WeaponKind.PLACE:
+                self._charge(state, gr)
+                continue
             color = (120, 126, 132) if gr.weapon.id == "smoke" else (72, 92, 62)
             pygame.draw.circle(screen, color, (sx(gr.x), sy(gr.y)), 6)
             pygame.draw.circle(screen, (30, 30, 34), (sx(gr.x), sy(gr.y)), 6, 1)
             if (state.now // 120) % 2 == 0:
                 pygame.draw.circle(screen, (255, 210, 90), (sx(gr.x), sy(gr.y) - 7), 2)
+
+    def _charge(self, state: GameState, gr) -> None:
+        """לבנת חבלה על הרצפה: TNT אדום או סמטקס בהיר, עם נורה שמהבהבת מהר יותר לקראת הבום."""
+        screen, x, y = self.canvas.screen, self.sx(gr.x), self.sy(gr.y)
+        body = pygame.Rect(x - 9, y - 6, 18, 12)
+        if gr.weapon.id == "tnt":
+            for i in range(3):
+                pygame.draw.rect(screen, (196, 44, 40), pygame.Rect(body.x + i * 6, body.y, 5, 12), border_radius=2)
+            pygame.draw.line(screen, (30, 30, 30), (body.x, body.centery), (body.right, body.centery), 2)
+        else:
+            pygame.draw.rect(screen, (222, 204, 160), body, border_radius=3)
+            pygame.draw.rect(screen, (90, 90, 96), body, 1, border_radius=3)
+        left = gr.fuse - state.now
+        blink = 90 if left < 1000 else 220
+        if (state.now // blink) % 2 == 0:
+            pygame.draw.circle(screen, (255, 60, 60), (x, y - 9), 3)
 
     def _smoke(self, state: GameState) -> None:
         for cloud in state.level.smokes:
@@ -164,8 +196,9 @@ class WorldView:
             box = pygame.Rect(sx(player.x) - reach, sy(player.y) - reach, reach * 2, reach * 2)
             pygame.draw.arc(screen, (255, 248, 190), box, -face - 1.0, -face + 1.0, 3)
 
-        if "laser" in state.inventory.gear and not state.game_over:
-            reach = min(current_weapon(state).rng, 260)
+        weapon = current_weapon(state)
+        if "laser" in state.inventory.gear and weapon is not None and not state.game_over:
+            reach = min(weapon.rng, 260)
             pygame.draw.line(screen, (255, 80, 80), (sx(player.x), sy(player.y)),
                              (sx(player.x + player.dir[0] * reach), sy(player.y + player.dir[1] * reach)), 1)
 

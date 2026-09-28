@@ -1,24 +1,27 @@
 # -*- coding: utf-8 -*-
-"""מה יש בחנות ומה קורה כשקונים."""
+"""מה יש בחנות ומה קורה כשקונים (או מכינים בסדנה שבתוך החנות)."""
 
 from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict
 
 from ..data import CATALOG
-from ..models import GameState, ItemBase
-from . import wheel
-from .inventory import give_weapon
+from ..models import GameState, ItemBase, ItemKind, Rank, Recipe
+from . import crafting, ranks, wheel
+from .inventory import give_item
 
 
 class ShopKind(StrEnum):
+    # הערכים של סוגי הפריטים זהים ל-ItemKind, כך ש-ItemKind(row.kind) עובד
     TOOL = "tool"
+    KEY = "key"
     WEAPON = "weapon"
     THROWABLE = "throwable"     # רימונים - נקנים ביחידות
     AMMO = "ammo"
     WHEEL = "wheel"
     GEAR = "gear"
     POTION = "potion"
+    CRAFT = "craft"             # סדנה - משלמים בחומרים מהתיק ולא בכסף
 
 
 class ShopRow(BaseModel):
@@ -27,6 +30,8 @@ class ShopRow(BaseModel):
     kind: ShopKind
     item: ItemBase
     owned: bool = False         # פריט שקונים פעם אחת וכבר נקנה
+    recipe: Recipe | None = None    # רק בשורות של הסדנה
+    need_rank: Rank | None = None   # נשק שעוד אין לך דרגה מספיק גבוהה בשבילו
 
 
 class ShopSection(BaseModel):
@@ -38,8 +43,12 @@ class ShopSection(BaseModel):
 
 def shop_sections(state: GameState) -> list[ShopSection]:
     inv = state.inventory
-    sections = [ShopSection(title="כלים", rows=[
-        ShopRow(kind=ShopKind.TOOL, item=t, owned=t.id in inv.tools) for t in CATALOG.tools])]
+    sections = [ShopSection(title="סדנה - מכינים מהחומרים שאספת", rows=[
+        ShopRow(kind=ShopKind.CRAFT, item=CATALOG.item(r.kind, r.item), recipe=r,
+                owned=crafting.already_made(state, r)) for r in CATALOG.recipes])]
+    sections.append(ShopSection(title="כלים", rows=[
+        ShopRow(kind=ShopKind.TOOL, item=t, owned=t.id in inv.tools) for t in CATALOG.tools]
+        + [ShopRow(kind=ShopKind.KEY, item=CATALOG.key)]))
     for cat in CATALOG.weapon_categories:
         rows = []
         for w in CATALOG.weapons:
@@ -48,7 +57,8 @@ def shop_sections(state: GameState) -> list[ShopSection]:
             if w.is_throwable:
                 rows.append(ShopRow(kind=ShopKind.THROWABLE, item=w))
             else:
-                rows.append(ShopRow(kind=ShopKind.WEAPON, item=w, owned=w.id in inv.weapons))
+                rows.append(ShopRow(kind=ShopKind.WEAPON, item=w, owned=w.id in inv.weapons,
+                                    need_rank=ranks.rank_needed(state, w)))
         sections.append(ShopSection(title=cat, rows=rows))
     sections.append(ShopSection(title="תחמושת", rows=[
         ShopRow(kind=ShopKind.AMMO, item=a) for a in CATALOG.ammo_types]))
@@ -64,36 +74,29 @@ def shop_sections(state: GameState) -> list[ShopSection]:
 
 
 def buy(state: GameState, row: ShopRow) -> bool:
-    """קונה את הפריט אם יש מספיק כסף. מחזיר True אם הקנייה הצליחה."""
+    """קונה את הפריט אם יש מספיק כסף (או מכין אותו בסדנה). מחזיר True אם הצליח."""
     inv, item = state.inventory, row.item
+    if row.kind == ShopKind.CRAFT:
+        return crafting.craft(state, row.recipe)
+    if row.kind == ShopKind.WEAPON and (rank := ranks.rank_needed(state, item)) is not None:
+        state.play("no", gap=400)
+        state.say("צריך דרגת %s כדי לקנות %s (יש לך %d מתוך %d נקודות)"
+                  % (rank.name, item.name, state.player.points, rank.points))
+        return False
     if row.owned or inv.money < item.price:
         return False
     inv.money -= item.price
     state.play("buy")
 
-    match row.kind:
-        case ShopKind.TOOL:
-            inv.tools.add(item.id)
-            state.say("קנית %s!" % item.name)
-        case ShopKind.GEAR:
-            inv.gear.add(item.id)
-            state.say("קנית %s!" % item.name)
-        case ShopKind.WEAPON:
-            give_weapon(inv, item)
-            ammo = CATALOG.ammo_for(item)
-            if ammo:
-                state.say("קנית %s! קיבלת גם %d %s" % (item.name, ammo.pack, ammo.name))
-            else:
-                state.say("קנית %s!" % item.name)
-        case ShopKind.AMMO:
-            inv.add_ammo(item.id, item.pack)
-            state.say("קנית %d %s!" % (item.pack, item.name))
-        case ShopKind.THROWABLE:
-            inv.add_throwable(item.id, 1)
-            state.say("קנית %s!" % item.name)
-        case ShopKind.POTION:
-            inv.add_potion(item.id)
-            state.say("קנית %s!" % item.name)
-        case ShopKind.WHEEL:
-            wheel.spin(state)
+    if row.kind == ShopKind.WHEEL:
+        wheel.spin(state)
+        return True
+    give_item(inv, ItemKind(row.kind), item)
+    ammo = CATALOG.ammo_for(item) if row.kind == ShopKind.WEAPON else None
+    if ammo:
+        state.say("קנית %s! קיבלת גם %d %s" % (item.name, ammo.pack, ammo.name))
+    elif row.kind == ShopKind.AMMO:
+        state.say("קנית %d %s!" % (item.pack, item.name))
+    else:
+        state.say("קנית %s!" % item.name)
     return True

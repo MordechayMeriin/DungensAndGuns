@@ -6,7 +6,7 @@ import random
 
 import pytest
 
-from dungeons_and_guns.models import PlayerInput
+from dungeons_and_guns.models import PlayerInput, ResourceKind
 from dungeons_and_guns.saves import SAVE_VERSION, SaveError, SaveStore
 from dungeons_and_guns.systems import combat, progression, simulation
 from dungeons_and_guns.world import make_enemy
@@ -29,6 +29,8 @@ def test_round_trip_restores_everything(store, state):
     state.inventory.tools.add("rod")
     state.inventory.gear.add("vest")
     state.inventory.add_potion("large", 2)
+    state.inventory.add_material(ResourceKind.IRON, 3)
+    state.player.points = 321
     state.level.fish_cooldown[(3, 5)] = 20_000       # מפתחות tuple עוברים JSON כמחרוזת
     combat.player_shoot(state)
     state.feedback.sounds.clear()
@@ -84,6 +86,15 @@ def test_damaged_file_is_reported_not_crashed(store, state):
     assert store.slot_info(1).damaged
     with pytest.raises(SaveError):
         store.load(1)
+
+
+def test_save_from_before_materials_still_loads(store, state):
+    store.save(1, state)
+    path = store.path(1)
+    data = json.loads(open(path, encoding="utf-8").read())
+    del data["state"]["inventory"]["materials"]
+    open(path, "w", encoding="utf-8").write(json.dumps(data))
+    assert store.load(1).inventory.materials == {}
 
 
 def test_other_version_is_rejected(store, state):

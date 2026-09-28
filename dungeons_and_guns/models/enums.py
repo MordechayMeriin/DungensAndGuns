@@ -12,16 +12,24 @@ class Tile(IntEnum):
     WALL = 1
     WATER = 2
     FISH = 3        # מים עם דגים
+    GATE = 4        # שער נעול - פותחים עם מפתח
+    ARMORED = 5     # קיר משוריין - רק סמטקס שובר אותו
 
     @property
     def is_water(self) -> bool:
         return self in (Tile.WATER, Tile.FISH)
+
+    @property
+    def is_solid(self) -> bool:
+        """אי אפשר לעבור דרכו - לא ללכת ולא לירות."""
+        return self in (Tile.WALL, Tile.ARMORED, Tile.GATE)
 
 
 class WeaponKind(StrEnum):
     GUN = "gun"         # יורה קליעים
     MELEE = "melee"     # מכה מקרוב
     THROW = "throw"     # זריקת רימון
+    PLACE = "place"     # מניחים על הרצפה ובורחים (TNT, סמטקס)
 
 
 class WeaponCategory(StrEnum):
@@ -33,6 +41,7 @@ class WeaponCategory(StrEnum):
     HEAVY = "מקלעים כבדים"
     COLD = "נשק קר"
     GRENADES = "רימונים"
+    EXPLOSIVES = "לבני חבלה"
 
 
 class GearCategory(StrEnum):
@@ -57,6 +66,26 @@ class ResourceKind(StrEnum):
     VOLCANO = "volcano"
 
 
+class ItemKind(StrEnum):
+    """איזה סוג פריט מקבלים (בחנות או בסדנה)."""
+
+    TOOL = "tool"
+    WEAPON = "weapon"
+    THROWABLE = "throwable"     # רימונים - באים ביחידות
+    AMMO = "ammo"
+    GEAR = "gear"
+    POTION = "potion"
+    FOOD = "food"
+    KEY = "key"
+
+
+class MissionKind(StrEnum):
+    KILL = "kill"           # לחסל אויבים
+    HARVEST = "harvest"     # לאסוף משאבים
+    CRATES = "crates"       # לפתוח תיבות
+    EXIT = "exit"           # לסיים את השלב
+
+
 class CrateKind(StrEnum):
     GOOD = "good"
     BAD = "bad"
@@ -74,3 +103,4 @@ class WheelOutcome(StrEnum):
     TOOL = "tool"
     GEAR = "gear"
     HEAL = "heal"
+    KEYS = "keys"

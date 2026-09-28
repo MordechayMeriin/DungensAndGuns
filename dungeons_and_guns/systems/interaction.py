@@ -6,9 +6,9 @@ import random
 
 from ..config import TILE
 from ..data import CATALOG
-from ..models import Crate, GameState, Resource, ResourceKind, Tile
+from ..models import Crate, GameState, MissionKind, Resource, ResourceKind, Tile
 from ..world import make_enemy
-from . import health
+from . import health, missions
 from .crates import open_crate
 from .progression import leave_level
 
@@ -17,6 +17,7 @@ RESOURCE_REACH = 36
 CRATE_REACH = 34
 EXIT_REACH = 24
 FISH_COOLDOWN_MS = 9000
+GATE_REACH = TILE * 1.3
 
 
 # ---------- מה נמצא ליד השחקן ----------
@@ -49,6 +50,19 @@ def nearest_fish_tile(state: GameState) -> tuple[int, int] | None:
     return best
 
 
+def nearest_gate(state: GameState) -> tuple[int, int] | None:
+    """שער שצמוד לשחקן (במשבצת ליד)."""
+    level, player = state.level, state.player
+    gx, gy = int(player.x // TILE), int(player.y // TILE)
+    best, best_d = None, GATE_REACH
+    for tx, ty in ((gx + 1, gy), (gx - 1, gy), (gx, gy + 1), (gx, gy - 1)):
+        if 0 <= tx < level.cols and 0 <= ty < level.rows and level.grid[ty][tx] == Tile.GATE:
+            d = math.hypot(tx * TILE + TILE / 2 - player.x, ty * TILE + TILE / 2 - player.y)
+            if d < best_d:
+                best, best_d = (tx, ty), d
+    return best
+
+
 def nearby_crate(state: GameState) -> Crate | None:
     return next((c for c in state.level.crates
                  if math.hypot(c.x - state.player.x, c.y - state.player.y) < CRATE_REACH), None)
@@ -66,6 +80,8 @@ def interact(state: GameState) -> None:
         go_fishing(state, tile)
     elif (crate := nearby_crate(state)) is not None:
         open_crate(state, crate)
+    elif (gate := nearest_gate(state)) is not None:
+        open_gate(state, gate)
     else:
         return
     state.player.last_interact = state.now
@@ -85,6 +101,10 @@ def harvest(state: GameState, res: Resource) -> None:
 
     gain = random.randint(*info.value)
     inv.money += gain
+    got = ""
+    if info.material:
+        inv.add_material(res.kind)
+        got = " וגם %s" % info.material
     state.play("pickup")
 
     if res.kind == ResourceKind.CAVE:
@@ -99,19 +119,33 @@ def harvest(state: GameState, res: Resource) -> None:
     elif res.kind == ResourceKind.VOLCANO:
         if random.random() < 0.3:
             health.drain(state, 10)
-            state.say("כרית בהר הגעש! +%d כסף אבל נכווית (-10 חיים)" % gain)
+            state.say("כרית בהר הגעש! +%d כסף%s אבל נכווית (-10 חיים)" % (gain, got))
         else:
-            state.say("כרית אבן געש! +%d כסף" % gain)
+            state.say("כרית בהר הגעש! +%d כסף%s" % (gain, got))
     elif res.kind == ResourceKind.COW and not state.player.sick and random.random() < 0.2:
         health.infect(state)
         state.say("נדבקת ממחלה מהפרה! רק תרופה גדולה תרפא אותך")
     else:
-        state.say("אספת %s! +%d כסף" % (info.name, gain))
+        state.say("אספת %s! +%d כסף%s" % (info.name, gain, got))
 
     if info.renew:
         res.ready_at = state.now + info.renew
     else:
         level.resources.remove(res)
+    missions.progress(state, MissionKind.HARVEST)
+
+
+def open_gate(state: GameState, gate: tuple[int, int]) -> None:
+    inv = state.inventory
+    if inv.keys <= 0:
+        state.play("no", gap=400)
+        state.say("השער נעול - צריך מפתח (בחנות, בסדנה מברזל, בתיבות ובגלגל)")
+        return
+    inv.keys -= 1
+    tx, ty = gate
+    state.level.grid[ty][tx] = Tile.FLOOR
+    state.play("crate_good")
+    state.say("פתחת את השער! (נשארו לך %d מפתחות)" % inv.keys)
 
 
 def go_fishing(state: GameState, tile: tuple[int, int]) -> None:
@@ -127,8 +161,9 @@ def go_fishing(state: GameState, tile: tuple[int, int]) -> None:
     state.play("splash")
     gain = random.randint(9, 16)
     state.inventory.money += gain
+    state.inventory.add_food("fish")
     level.fish_cooldown[tile] = state.now + FISH_COOLDOWN_MS
-    state.say("דגת דג! +%d כסף" % gain)
+    state.say("דגת דג! +%d כסף וגם דג לאכול" % gain)
 
 
 def interact_hint(state: GameState) -> str:
@@ -153,4 +188,6 @@ def interact_hint(state: GameState) -> str:
         return "Q = דיג"
     if nearby_crate(state) is not None:
         return "Q = פתיחת תיבה"
+    if nearest_gate(state) is not None:
+        return "Q = לפתוח שער (יש לך %d מפתחות)" % inv.keys if inv.keys else "שער נעול - צריך מפתח"
     return ""

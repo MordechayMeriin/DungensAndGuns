@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
-"""התוכן של המשחק. להוספת נשק/כלי/משאב חדש - עורכים את הקבצים בתיקייה הזו."""
+"""התוכן של המשחק. להוספת נשק/כלי/משאב/מתכון/דרגה חדשים - עורכים את הקבצים בתיקייה הזו."""
 
 from .catalog import Catalog
-from .items import AMMO_TYPES, GEAR, POTIONS, TOOLS, WHEEL_SLICES, WHEEL_TICKET
+from .items import AMMO_TYPES, FOODS, GEAR, KEY, POTIONS, TOOLS, WHEEL_SLICES, WHEEL_TICKET
+from .ranks import RANKS
+from .recipes import RECIPES
 from .resources import RESOURCE_TYPES
 from .weapons import WEAPONS
 
@@ -12,7 +14,11 @@ CATALOG = Catalog(
     gear=GEAR,
     tools=TOOLS,
     potions=POTIONS,
+    foods=FOODS,
+    key=KEY,
     resources=RESOURCE_TYPES,
+    recipes=RECIPES,
+    ranks=RANKS,
     wheel_ticket=WHEEL_TICKET,
     wheel_slices=WHEEL_SLICES,
 )

@@ -10,16 +10,16 @@
 
 ## איך מפעילים את המשחק?
 
-לחיצה כפולה על הקובץ **הפעל את המשחק.bat** בתיקייה. נפתח חלון של המשחק.
+לחיצה כפולה על הקובץ **הפעל את המשחק.bat** בתיקייה. נפתח חלון של המשחק, ובו קודם מסך הוראות (לוחצים על מקש כלשהו כדי להמשיך לתפריט).
 
-**מקשים:** חצים = תזוזה | רווח = ירי | Q = איסוף משאב/פתיחת תיבה/מעבר לשלב הבא | T = שתיית תרופה | Y = חנות (קונים בלחיצת עכבר) | 1-9 או Z/X = החלפת נשק | M = להדליק/לכבות קולות | R אחרי מוות = להתחיל מחדש | Esc = תפריט ראשי (משחק חדש, שמירה, טעינה, יציאה)
+**מקשים:** חצים = תזוזה | רווח = להשתמש במה שנבחר בשורת המספרים (לירות / לשתות / לאכול) | 1-9 ו-0, Z/X או גלגלת העכבר = לבחור משבצת בשורה | E = התיק (כל מה שיש לך; גוררים עם העכבר לשורת המספרים) | Q = איסוף משאב/פתיחת תיבה/פתיחת שער (צריך מפתח)/מעבר לשלב הבא | T = שתיית תרופה | F = לאכול | Y = חנות וסדנה (קונים בכסף, או מכינים מחומרים שאספת תחמושת, ציוד ואוכל - בלחיצת עכבר) | M = להדליק/לכבות קולות | R אחרי מוות = להתחיל מחדש | Esc = תפריט ראשי (משחק חדש, שמירה, טעינה, יציאה)
 
 ### Code structure (for Claude — keep to it)
 
 `game.py` is only a launcher; all code lives in the `dungeons_and_guns/` package:
 
 - `models/` — pydantic models. Catalog items (`Weapon`, `Gear`, ...) are frozen; world entities and `GameState` are mutable. Entities carry a `uid` so equal-looking objects stay distinct.
-- `data/` — game content (weapons, ammo, gear, tools, resources, wheel). New items go here; `Catalog` validates cross-references at startup.
+- `data/` — game content (weapons, ammo, gear, tools, resources + the material each one drops, workshop recipes, ranks, wheel). New items go here; `Catalog` validates cross-references at startup.
 - `world/` — maze generation and level building.
 - `systems/` — game rules as functions over `GameState`. **Must not import pygame.** Feedback goes through `state.say()` / `state.play()`; time comes from `state.now`.
 - `ui/` — all drawing (world, HUD, shop, wheel, overlays, item icons). Reads state, never changes game rules.

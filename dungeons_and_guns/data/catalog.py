@@ -5,8 +5,9 @@ from functools import cached_property
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from ..models import (AmmoType, Gear, GearCategory, Potion, ResourceKind, ResourceType, Tool,
-                      Weapon, WeaponCategory, WeaponKind, WheelSlice, WheelTicket)
+from ..models import (AmmoType, Food, Gear, GearCategory, ItemBase, ItemKind, Key, Potion, Rank, Recipe, ResourceKind,
+                      ResourceType, Tool, Weapon, WeaponCategory, WeaponKind, WheelSlice,
+                      WheelTicket)
 
 
 class Catalog(BaseModel):
@@ -24,13 +25,18 @@ class Catalog(BaseModel):
     gear: list[Gear]
     tools: list[Tool]
     potions: list[Potion]
+    foods: list[Food]
+    key: Key
     resources: list[ResourceType]
+    recipes: list[Recipe]
+    ranks: list[Rank]
     wheel_ticket: WheelTicket
     wheel_slices: list[WheelSlice]
 
     @model_validator(mode="after")
     def _check_references(self) -> "Catalog":
-        for group in (self.weapons, self.ammo_types, self.gear, self.tools, self.potions):
+        for group in (self.weapons, self.ammo_types, self.gear, self.tools, self.potions,
+                      self.foods):
             ids = [item.id for item in group]
             dupes = {i for i in ids if ids.count(i) > 1}
             if dupes:
@@ -46,6 +52,27 @@ class Catalog(BaseModel):
         missing = set(ResourceKind) - {r.kind for r in self.resources}
         if missing:
             raise ValueError("resource kinds without a definition: %s" % sorted(missing))
+        materials = {r.kind for r in self.resources if r.material}
+        for recipe in self.recipes:
+            try:
+                item = self.item(recipe.kind, recipe.item)
+            except KeyError:
+                raise ValueError("recipe makes unknown %s %s" % (recipe.kind, recipe.item)) from None
+            if (recipe.kind == ItemKind.THROWABLE) != (isinstance(item, Weapon) and item.is_throwable):
+                raise ValueError("recipe %s: throwables and only throwables use kind THROWABLE"
+                                 % recipe.item)
+            if not set(recipe.needs) <= materials:
+                raise ValueError("recipe %s needs resources that give no material: %s"
+                                 % (recipe.item, sorted(set(recipe.needs) - materials)))
+        points = [r.points for r in self.ranks]
+        if not points or points[0] != 0 or points != sorted(set(points)):
+            raise ValueError("ranks must start at 0 points and go strictly up: %s" % points)
+        weapon_ids = {w.id for w in self.weapons}
+        unlocks = [wid for r in self.ranks for wid in r.unlocks]
+        if len(unlocks) != len(set(unlocks)):
+            raise ValueError("a weapon is unlocked by more than one rank")
+        if not set(unlocks) <= weapon_ids:
+            raise ValueError("ranks unlock unknown weapons: %s" % sorted(set(unlocks) - weapon_ids))
         return self
 
     # ---------- חיפוש לפי id ----------
@@ -58,12 +85,20 @@ class Catalog(BaseModel):
         return {a.id: a for a in self.ammo_types}
 
     @cached_property
+    def _gear(self) -> dict[str, Gear]:
+        return {g.id: g for g in self.gear}
+
+    @cached_property
     def _tools(self) -> dict[str, Tool]:
         return {t.id: t for t in self.tools}
 
     @cached_property
     def _potions(self) -> dict[str, Potion]:
         return {p.id: p for p in self.potions}
+
+    @cached_property
+    def _foods(self) -> dict[str, Food]:
+        return {f.id: f for f in self.foods}
 
     @cached_property
     def _resources(self) -> dict[ResourceKind, ResourceType]:
@@ -85,8 +120,42 @@ class Catalog(BaseModel):
     def potion(self, potion_id: str) -> Potion:
         return self._potions[potion_id]
 
+    def food(self, food_id: str) -> Food:
+        return self._foods[food_id]
+
     def resource(self, kind: ResourceKind) -> ResourceType:
         return self._resources[kind]
+
+    def item(self, kind: ItemKind, item_id: str) -> ItemBase:
+        """פריט לפי הסוג שלו וה-id (זורק KeyError אם אין כזה)."""
+        match kind:
+            case ItemKind.WEAPON | ItemKind.THROWABLE:
+                return self.weapon(item_id)
+            case ItemKind.AMMO:
+                return self.ammo(item_id)
+            case ItemKind.TOOL:
+                return self.tool(item_id)
+            case ItemKind.POTION:
+                return self.potion(item_id)
+            case ItemKind.GEAR:
+                return self._gear[item_id]
+            case ItemKind.FOOD:
+                return self.food(item_id)
+            case ItemKind.KEY:
+                if item_id != self.key.id:
+                    raise KeyError(item_id)
+                return self.key
+
+    def rank_for(self, points: int) -> Rank:
+        """הדרגה הכי גבוהה שהנקודות מספיקות לה."""
+        return [r for r in self.ranks if r.points <= points][-1]
+
+    def next_rank(self, points: int) -> Rank | None:
+        return next((r for r in self.ranks if r.points > points), None)
+
+    def unlock_rank(self, weapon_id: str) -> Rank | None:
+        """איזו דרגה פותחת את הנשק (None = פתוח מההתחלה)."""
+        return next((r for r in self.ranks if weapon_id in r.unlocks), None)
 
     # ---------- קבוצות ----------
     @property

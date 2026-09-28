@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""תחמושת, ציוד, כלי עבודה, תרופות וגלגל המזל."""
+"""תחמושת, ציוד, כלי עבודה, תרופות, אוכל וגלגל המזל."""
 
-from ..models import AmmoType, Gear, Potion, Tool, WheelSlice, WheelTicket
+from ..models import AmmoType, Food, Gear, Key, Potion, Tool, WheelSlice, WheelTicket
 from ..models import GearCategory as G
 from ..models import WheelOutcome as W
 
@@ -44,10 +44,21 @@ TOOLS = [
     Tool(id="boat",    name="סירה", desc="מאפשרת לעבור מעל המים",     price=150),
 ]
 
+KEY = Key(id="key", name="מפתח", price=20, desc="פותח שער נעול אחד ונעלם")
+
 POTIONS = [
     Potion(id="small",  name="תרופה קטנה",    heal=25,  price=40,  art="potion_small"),
     Potion(id="medium", name="תרופה בינונית", heal=60,  price=90,  art="potion_medium"),
     Potion(id="large",  name="תרופה גדולה",   heal=120, price=160, art="potion_large"),
+]
+
+# אוכל - לא קונים: מכינים בסדנה מהחומרים של החווה (ראו recipes.py), ודגים במים עם חכה
+FOODS = [
+    Food(id="bread",    name="לחם",   heal=15, desc="לחם טרי מחיטה"),
+    Food(id="omelette", name="חביתה", heal=15, desc="חביתה משתי ביצים"),
+    Food(id="cheese",   name="גבינה", heal=20, desc="גבינה מחלב"),
+    Food(id="cake",     name="עוגה",  heal=35, desc="עוגה גדולה - מחזירה הרבה חיים"),
+    Food(id="fish",     name="דג",    heal=20, desc="דג טרי - מקבלים כשדגים עם חכה"),
 ]
 
 # גלגל המזל - שבע משבצות טובות ושלוש רעות, מפוזרות מסביב
@@ -64,4 +75,5 @@ WHEEL_SLICES = [
     WheelSlice(id=W.TOOL,       name="כלי עבודה",  color=(150, 100, 52),  good=True),
     WheelSlice(id=W.GEAR,       name="ציוד",       color=(92, 120, 164),  good=True),
     WheelSlice(id=W.HEAL,       name="חיים מלאים", color=(62, 190, 90),   good=True),
+    WheelSlice(id=W.KEYS,       name="מפתחות",     color=(196, 150, 60),  good=True),
 ]

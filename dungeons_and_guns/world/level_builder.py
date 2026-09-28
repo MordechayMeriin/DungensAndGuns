@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
-"""בונה שלב חדש: מבוך, יציאה, אויבים, משאבים, תיבות ומים."""
+"""בונה שלב חדש: מבוך, יציאה, אויבים, משאבים, תיבות, מים, שערים וקירות משוריינים."""
 
 import random
 
 from ..config import TILE
 from ..data import CATALOG
 from ..models import Crate, CrateKind, Enemy, Level, Resource, Tile
-from .maze import Grid, generate_maze, path_exists
+from .maze import Grid, generate_maze, path_exists, reachable
 
 START_TILE = (1, 1)
+ARMORED_SHARE = 0.3         # איזה חלק מהקירות הפנימיים משוריין
 
 
 def tile_center(tx: int, ty: int) -> tuple[float, float]:
@@ -55,7 +56,45 @@ def build_level(number: int) -> Level:
         level.crates.append(Crate(x=x, y=y, kind=kind))
 
     place_water(level.grid, free, exit_tile, target=5 + number * 2)
+    treasure = [(int(o.x // TILE), int(o.y // TILE)) for o in level.crates + level.resources]
+    place_gates(level.grid, free, exit_tile, treasure, target=min(1 + number // 2, 4))
+    armor_walls(level.grid)
     return level
+
+
+def armor_walls(grid: Grid) -> None:
+    """חלק מהקירות שבתוך המבוך משוריינים (המסגרת נשארת קיר רגיל שאי אפשר לשבור בכלל)."""
+    rows, cols = len(grid), len(grid[0])
+    for y in range(1, rows - 1):
+        for x in range(1, cols - 1):
+            if grid[y][x] == Tile.WALL and random.random() < ARMORED_SHARE:
+                grid[y][x] = Tile.ARMORED
+
+
+def place_gates(grid: Grid, candidates: list[tuple[int, int]], exit_tile: tuple[int, int],
+                treasure: list[tuple[int, int]], target: int) -> None:
+    """שערים במסדרונות שנועלים פינה עם תיבה או משאב - אבל אף פעם לא את הדרך ליציאה."""
+    placed = 0
+    for x, y in candidates:
+        if placed >= target:
+            break
+        if grid[y][x] != Tile.FLOOR or not _is_corridor(grid, x, y):
+            continue
+        grid[y][x] = Tile.GATE
+        open_area = reachable(grid, START_TILE)
+        if exit_tile in open_area and any(t not in open_area for t in treasure):
+            placed += 1
+        else:
+            grid[y][x] = Tile.FLOOR
+
+
+def _is_corridor(grid: Grid, x: int, y: int) -> bool:
+    """מסדרון ישר: רצפה משני צדדים מנוגדים וקיר בשני האחרים - שם שער נראה כמו דלת."""
+    def floor(tx: int, ty: int) -> bool:
+        return grid[ty][tx] == Tile.FLOOR
+    horizontal = floor(x - 1, y) and floor(x + 1, y) and not floor(x, y - 1) and not floor(x, y + 1)
+    vertical = floor(x, y - 1) and floor(x, y + 1) and not floor(x - 1, y) and not floor(x + 1, y)
+    return horizontal or vertical
 
 
 def place_water(grid: Grid, candidates: list[tuple[int, int]], exit_tile: tuple[int, int],

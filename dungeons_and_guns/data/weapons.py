@@ -76,5 +76,7 @@ WEAPONS = [
 
     # ----- רימונים (נקנים ביחידות) -----
     Weapon(id="grenade",   name="רימון יד",        cat=C.GRENADES, art="grenade", kind=K.THROW, dmg=(45, 70), acc=1.0, rng=220, cooldown=800, price=90,  radius=72),
+    Weapon(id="tnt",       name="TNT",             cat=C.EXPLOSIVES, art="tnt",    kind=K.PLACE, dmg=(40, 65),  acc=1.0, rng=1, cooldown=700, price=120, radius=70, wall_power=1),
+    Weapon(id="semtex",    name="סמטקס",           cat=C.EXPLOSIVES, art="semtex", kind=K.PLACE, dmg=(55, 90),  acc=1.0, rng=1, cooldown=700, price=280, radius=80, wall_power=2),
     Weapon(id="smoke",     name="רימון עשן",       cat=C.GRENADES, art="smoke",   kind=K.THROW, dmg=(0, 0),   acc=1.0, rng=220, cooldown=800, price=60,  radius=96),
 ]

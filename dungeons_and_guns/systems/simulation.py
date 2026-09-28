@@ -3,23 +3,23 @@
 
 import math
 
-from ..models import GameState, PlayerInput
-from . import combat, enemies, health, interaction, particles
+from ..models import GameState, ItemKind, PlayerInput
+from . import combat, enemies, health, interaction, missions, particles
 from . import wheel as wheel_system
 from .inventory import move_speed
 
 INSPECT_MS = 5000
 
 
-def is_paused(state: GameState, shop_open: bool) -> bool:
-    return state.game_over or shop_open or state.wheel is not None
+def is_paused(state: GameState, window_open: bool) -> bool:
+    return state.game_over or window_open or state.wheel is not None
 
 
-def step(state: GameState, inp: PlayerInput, shop_open: bool = False) -> None:
-    """מתקדם פריים אחד. בזמן חנות/גלגל/מוות העולם קפוא."""
+def step(state: GameState, inp: PlayerInput, window_open: bool = False) -> None:
+    """מתקדם פריים אחד. בזמן חנות/תיק/גלגל/מוות העולם קפוא."""
     if state.wheel is not None:
         wheel_system.update(state)
-    if is_paused(state, shop_open):
+    if is_paused(state, window_open):
         return
     update_player(state, inp)
     enemies.update_enemies(state)
@@ -28,6 +28,7 @@ def step(state: GameState, inp: PlayerInput, shop_open: bool = False) -> None:
     combat.update_grenades(state)
     combat.update_smokes(state)
     particles.update_sparks(state.level)
+    missions.update(state)
 
 
 def update_player(state: GameState, inp: PlayerInput) -> None:
@@ -47,11 +48,27 @@ def update_player(state: GameState, inp: PlayerInput) -> None:
             player.y += dy * speed
 
     if inp.shoot:
-        combat.player_shoot(state)
+        use_selected(state)
     if inp.interact:
         interaction.interact(state)
     if inp.drink:
         health.drink_potion(state)
+    if inp.eat:
+        health.eat(state)
+
+
+def use_selected(state: GameState) -> None:
+    """רווח - משתמשים במה שנבחר בשורת המספרים: יורים, שותים או אוכלים."""
+    item = state.inventory.selected_item
+    if item is None:
+        return
+    match item.kind:
+        case ItemKind.WEAPON:
+            combat.player_shoot(state)
+        case ItemKind.POTION:
+            health.drink_potion(state, item.id)
+        case ItemKind.FOOD:
+            health.eat(state, item.id)
 
 
 def inspect_enemy_at(state: GameState, wx: float, wy: float) -> None:

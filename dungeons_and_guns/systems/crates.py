@@ -4,9 +4,9 @@
 import random
 
 from ..data import CATALOG
-from ..models import Crate, CrateKind, GameState
+from ..models import Crate, CrateKind, GameState, MissionKind
 from ..world import make_enemy
-from . import health, particles
+from . import health, missions, particles
 from .inventory import give_random_gear, give_random_tool, give_weapon
 
 
@@ -20,6 +20,7 @@ def open_crate(state: GameState, crate: Crate) -> None:
         state.say("פתחת תיבה... והיא ריקה")
     else:
         good_crate(state, crate)
+    missions.progress(state, MissionKind.CRATES)
 
 
 def good_crate(state: GameState, crate: Crate) -> None:
@@ -29,6 +30,10 @@ def good_crate(state: GameState, crate: Crate) -> None:
     particles.spark(state.level, crate.x, crate.y, (255, 214, 102))
     roll = random.random()
 
+    if roll < 0.07:
+        inv.keys += 1
+        state.say("בתיבה היה מפתח! (יש לך %d)" % inv.keys)
+        return
     if roll < 0.30:
         gain = random.randint(20, 40 + number * 8)
         inv.money += gain

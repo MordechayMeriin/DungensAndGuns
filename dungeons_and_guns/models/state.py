@@ -3,13 +3,16 @@
 
 from typing import Annotated, Any
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
+from pydantic import (BaseModel, BeforeValidator, ConfigDict, Field, field_validator,
+                      model_validator)
 
 from ..config import TILE
 from .catalog import WheelSlice
 from .entities import Bullet, Crate, Enemy, Grenade, Resource, SmokeCloud, Spark
-from .enums import Tile
+from .enums import ItemKind, MissionKind, ResourceKind, Tile
 
+HOTBAR_SIZE = 10        # שורת המספרים: מקשים 1-9 ו-0
+HOTBAR_KINDS = (ItemKind.WEAPON, ItemKind.POTION, ItemKind.FOOD)
 
 
 def _parse_point(value: Any) -> Any:
@@ -36,6 +39,7 @@ class PlayerInput(_Model):
     shoot: bool = False
     interact: bool = False
     drink: bool = False
+    eat: bool = False
 
 
 class Player(_Model):
@@ -45,6 +49,7 @@ class Player(_Model):
     r: int = 11
     hp: float = 100
     max_hp: int = 100
+    points: int = 0             # נקודות דרגה - מקבלים על כל אויב שמחסלים
     invuln: int = 0             # כמה פריימים השחקן עוד מוגן אחרי תחילת שלב
     sick: bool = False
     sick_tick: int = 0
@@ -52,6 +57,7 @@ class Player(_Model):
     last_shot: int = 0
     last_interact: int = 0
     last_potion: int = 0
+    last_meal: int = 0
     swing_until: int = 0
     swing_reach: float = 40
 
@@ -60,19 +66,57 @@ class Player(_Model):
         return self.hp / self.max_hp
 
 
+class SlotItem(_Model):
+    """משהו שאפשר לשים בשורת המספרים: נשק (גם רימונים), תרופה או אוכל."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    kind: ItemKind
+    id: str
+
+    @field_validator("kind")
+    @classmethod
+    def _usable(cls, kind: ItemKind) -> ItemKind:
+        if kind not in HOTBAR_KINDS:
+            raise ValueError("only weapons, potions and food go in the hotbar, not %s" % kind)
+        return kind
+
+
 class Inventory(_Model):
     money: int = 100
-    weapons: list[str] = Field(default_factory=list)       # לפי הסדר של מקשי 1-9
-    weapon_index: int = 0
+    weapons: list[str] = Field(default_factory=list)       # כל הנשקים שיש (גם רימונים)
+    hotbar: list[SlotItem | None] = Field(default_factory=lambda: [None] * HOTBAR_SIZE)
+    selected: int = Field(0, ge=0, lt=HOTBAR_SIZE)          # איזו משבצת בשורה נבחרה
     tools: set[str] = Field(default_factory=set)
     gear: set[str] = Field(default_factory=set)
     ammo: dict[str, int] = Field(default_factory=dict)       # סוג תחמושת -> כמה כדורים
     throwables: dict[str, int] = Field(default_factory=dict)  # רימון -> כמה יחידות
     potions: dict[str, int] = Field(default_factory=dict)
+    keys: int = 0                                               # מפתחות לשערים
+    food: dict[str, int] = Field(default_factory=dict)          # אוכל מהסדנה -> כמה מנות
+    materials: dict[ResourceKind, int] = Field(default_factory=dict)  # משאב -> כמה פריטים נאספו
 
-    @property
-    def weapon_id(self) -> str:
-        return self.weapons[self.weapon_index]
+    @model_validator(mode="before")
+    @classmethod
+    def _fill_hotbar(cls, data: Any) -> Any:
+        """משחק חדש, או שמירה מלפני שורת המספרים: מסדרים את השורה לבד."""
+        if not isinstance(data, dict) or "hotbar" in data:
+            return data
+        data = dict(data)
+        items = [SlotItem(kind=ItemKind.WEAPON, id=w) for w in data.get("weapons", [])]
+        items += [SlotItem(kind=ItemKind.POTION, id=p) for p in data.get("potions", {})]
+        items += [SlotItem(kind=ItemKind.FOOD, id=f) for f in data.get("food", {})]
+        items = items[:HOTBAR_SIZE]
+        data["hotbar"] = items + [None] * (HOTBAR_SIZE - len(items))
+        data["selected"] = min(data.pop("weapon_index", 0), HOTBAR_SIZE - 1)
+        return data
+
+    @field_validator("hotbar")
+    @classmethod
+    def _hotbar_size(cls, hotbar: list[SlotItem | None]) -> list[SlotItem | None]:
+        if len(hotbar) != HOTBAR_SIZE:
+            raise ValueError("the hotbar has exactly %d slots" % HOTBAR_SIZE)
+        return hotbar
 
     def ammo_count(self, ammo_id: str) -> int:
         return self.ammo.get(ammo_id, 0)
@@ -87,20 +131,60 @@ class Inventory(_Model):
         self.throwables[weapon_id] = self.throwables.get(weapon_id, 0) + count
         if weapon_id not in self.weapons:
             self.weapons.append(weapon_id)
+        self.add_to_hotbar(SlotItem(kind=ItemKind.WEAPON, id=weapon_id))
 
     def potion_count(self, potion_id: str) -> int:
         return self.potions.get(potion_id, 0)
 
     def add_potion(self, potion_id: str, count: int = 1) -> None:
         self.potions[potion_id] = self.potions.get(potion_id, 0) + count
+        self.add_to_hotbar(SlotItem(kind=ItemKind.POTION, id=potion_id))
 
-    def cycle_weapon(self, step: int) -> None:
-        if self.weapons:
-            self.weapon_index = (self.weapon_index + step) % len(self.weapons)
+    def food_count(self, food_id: str) -> int:
+        return self.food.get(food_id, 0)
 
-    def select_weapon(self, index: int) -> None:
-        if 0 <= index < len(self.weapons):
-            self.weapon_index = index
+    def add_food(self, food_id: str, count: int = 1) -> None:
+        self.food[food_id] = self.food.get(food_id, 0) + count
+        self.add_to_hotbar(SlotItem(kind=ItemKind.FOOD, id=food_id))
+
+    def material_count(self, kind: ResourceKind) -> int:
+        return self.materials.get(kind, 0)
+
+    def add_material(self, kind: ResourceKind, count: int = 1) -> None:
+        self.materials[kind] = self.materials.get(kind, 0) + count
+
+    # ---------- שורת המספרים ----------
+    @property
+    def selected_item(self) -> SlotItem | None:
+        return self.hotbar[self.selected]
+
+    def hotbar_index(self, item: SlotItem) -> int | None:
+        return next((i for i, slot in enumerate(self.hotbar) if slot == item), None)
+
+    def add_to_hotbar(self, item: SlotItem) -> None:
+        """דבר חדש נכנס למשבצת הפנויה הראשונה (אם יש, ואם הוא עוד לא בשורה)."""
+        if item in self.hotbar:
+            return
+        empty = next((i for i, slot in enumerate(self.hotbar) if slot is None), None)
+        if empty is not None:
+            self.hotbar[empty] = item
+
+    def set_slot(self, index: int, item: SlotItem) -> None:
+        """שם דבר במשבצת. אם הוא כבר במשבצת אחרת - שתי המשבצות מתחלפות."""
+        old = self.hotbar_index(item)
+        if old is not None:
+            self.hotbar[old] = self.hotbar[index]
+        self.hotbar[index] = item
+
+    def clear_slot(self, index: int) -> None:
+        self.hotbar[index] = None
+
+    def select_slot(self, index: int) -> None:
+        if 0 <= index < HOTBAR_SIZE:
+            self.selected = index
+
+    def cycle_slot(self, step: int) -> None:
+        self.selected = (self.selected + step) % HOTBAR_SIZE
 
 
 class Level(_Model):
@@ -136,11 +220,12 @@ class Level(_Model):
         return self.grid[gy][gx]
 
     def is_wall(self, px: float, py: float) -> bool:
-        return self.tile_at(px, py) == Tile.WALL
+        """קיר, קיר משוריין או שער - עוצרים גם קליעים."""
+        return self.tile_at(px, py).is_solid
 
     def blocked(self, px: float, py: float, boat: bool) -> bool:
         tile = self.tile_at(px, py)
-        return tile == Tile.WALL or (tile.is_water and not boat)
+        return tile.is_solid or (tile.is_water and not boat)
 
     def can_move(self, x: float, y: float, r: float, boat: bool = False) -> bool:
         return not (self.blocked(x - r, y - r, boat) or self.blocked(x + r, y - r, boat) or
@@ -179,6 +264,17 @@ class Feedback(_Model):
         return cues
 
 
+class Mission(_Model):
+    """משימה עם שעון: לעשות משהו goal פעמים עד deadline (בזמן המשחק)."""
+
+    kind: MissionKind
+    goal: int = Field(gt=0)
+    progress: int = 0
+    deadline: int
+    money: int              # הפרס
+    points: int
+
+
 class WheelSpin(_Model):
     angle: float
     speed: float
@@ -198,6 +294,7 @@ class GameState(_Model):
     feedback: Feedback = Field(default_factory=Feedback)
     game_over: bool = False
     wheel: WheelSpin | None = None
+    mission: Mission | None = None
     inspect_uid: int | None = None      # על איזה אויב לחצו כדי לראות את הנשק שלו
     inspect_until: int = 0
 

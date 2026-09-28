@@ -4,11 +4,15 @@
 import random
 
 from ..data import CATALOG
-from ..models import Gear, GameState, Inventory, Tool, Weapon
+from ..models import Gear, GameState, Inventory, ItemBase, ItemKind, SlotItem, Tool, Weapon
 
 
-def current_weapon(state: GameState) -> Weapon:
-    return CATALOG.weapon(state.inventory.weapon_id)
+def current_weapon(state: GameState) -> Weapon | None:
+    """הנשק שבמשבצת הנבחרת בשורת המספרים (None אם נבחרה תרופה, אוכל או משבצת ריקה)."""
+    item = state.inventory.selected_item
+    if item is None or item.kind != ItemKind.WEAPON:
+        return None
+    return CATALOG.weapon(item.id)
 
 
 def owned_gear(inv: Inventory) -> list[Gear]:
@@ -19,9 +23,44 @@ def give_weapon(inv: Inventory, weapon: Weapon) -> None:
     """נותן נשק חדש, ואיתו חפיסת תחמושת אחת כדי שאפשר יהיה לירות בו."""
     if weapon.id not in inv.weapons:
         inv.weapons.append(weapon.id)
+    inv.add_to_hotbar(SlotItem(kind=ItemKind.WEAPON, id=weapon.id))
     ammo = CATALOG.ammo_for(weapon)
     if ammo:
         inv.add_ammo(ammo.id, ammo.pack)
+
+
+def owns(inv: Inventory, kind: ItemKind, item_id: str) -> bool:
+    """פריטים שמקבלים פעם אחת בלבד (כלי, נשק, ציוד) - האם כבר יש אותו."""
+    match kind:
+        case ItemKind.TOOL:
+            return item_id in inv.tools
+        case ItemKind.WEAPON:
+            return item_id in inv.weapons
+        case ItemKind.GEAR:
+            return item_id in inv.gear
+        case _:
+            return False
+
+
+def give_item(inv: Inventory, kind: ItemKind, item: ItemBase) -> None:
+    """נותן פריט אחד מהקטלוג (חפיסת תחמושת שלמה, רימון אחד, תרופה אחת...)."""
+    match kind:
+        case ItemKind.TOOL:
+            inv.tools.add(item.id)
+        case ItemKind.GEAR:
+            inv.gear.add(item.id)
+        case ItemKind.WEAPON:
+            give_weapon(inv, item)
+        case ItemKind.AMMO:
+            inv.add_ammo(item.id, item.pack)
+        case ItemKind.THROWABLE:
+            inv.add_throwable(item.id, 1)
+        case ItemKind.POTION:
+            inv.add_potion(item.id)
+        case ItemKind.FOOD:
+            inv.add_food(item.id)
+        case ItemKind.KEY:
+            inv.keys += 1
 
 
 def give_random_tool(inv: Inventory) -> Tool | None:

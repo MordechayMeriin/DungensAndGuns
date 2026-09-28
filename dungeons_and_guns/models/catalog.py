@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""הגדרות של פריטים קבועים: נשק, תחמושת, ציוד, כלים, תרופות, משאבים וגלגל המזל.
+"""הגדרות של פריטים קבועים: נשק, תחמושת, ציוד, כלים, תרופות, אוכל, משאבים וגלגל המזל.
 
 All catalog models are frozen: they describe *what an item is*, never what the player has.
 """
@@ -8,7 +8,7 @@ from typing import Annotated, Any
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
-from .enums import GearCategory, ResourceKind, WeaponCategory, WeaponKind, WheelOutcome
+from .enums import GearCategory, ItemKind, ResourceKind, WeaponCategory, WeaponKind, WheelOutcome
 
 
 # איזו תחמושת צורך כל נשק חם, לפי המחלקה שלו (אפשר לדרוס לכל נשק בנפרד)
@@ -63,6 +63,7 @@ class Weapon(ItemBase):
     pellets: int = Field(1, ge=1)
     radius: int = 0             # רדיוס הפיצוץ, לרימונים
     ammo: str | None = None     # סוג התחמושת; נקבע לפי המחלקה אם לא כתוב
+    wall_power: int = Field(0, ge=0, le=2)  # לבני חבלה: 1 = שובר קיר רגיל, 2 = גם משוריין
 
     @model_validator(mode="before")
     @classmethod
@@ -73,7 +74,8 @@ class Weapon(ItemBase):
 
     @property
     def is_throwable(self) -> bool:
-        return self.kind == WeaponKind.THROW
+        """רימונים ולבני חבלה: נקנים ונספרים ביחידות, וכל אחד נגמר כשמשתמשים בו."""
+        return self.kind in (WeaponKind.THROW, WeaponKind.PLACE)
 
 
 class Gear(ItemBase):
@@ -95,7 +97,18 @@ class Tool(ItemBase):
     pass
 
 
+class Key(ItemBase):
+    """מפתח - פותח שער אחד ונעלם."""
+
+
 class Potion(ItemBase):
+    heal: int = Field(gt=0)
+
+
+class Food(ItemBase):
+    """אוכל - מכינים בסדנה או דגים, ואוכלים (F או משורת המספרים). לא נמכר בחנות."""
+
+    price: int = 0
     heal: int = Field(gt=0)
 
 
@@ -112,6 +125,16 @@ class WheelSlice(BaseModel):
     good: bool
 
 
+class Rank(BaseModel):
+    """דרגה: מכמה נקודות מקבלים אותה, ואילו כלי נשק היא פותחת בחנות."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str
+    points: int = Field(ge=0)
+    unlocks: tuple[str, ...] = ()   # ה-id של כלי הנשק שנפתחים בדרגה הזו
+
+
 class ResourceType(BaseModel):
     """סוג משאב במפה. renew = אחרי כמה מילישניות המשאב חוזר (0 = נעלם לתמיד)."""
 
@@ -119,9 +142,26 @@ class ResourceType(BaseModel):
 
     kind: ResourceKind
     name: str
+    material: str | None = None     # הפריט שנכנס לתיק בכל איסוף (למשל "מטיל ברזל")
     tool: str | None
     value: Range
     color: Color
     mark: str
     renew: int = 0
     weight: int = Field(gt=0)
+
+
+def _check_needs(value: dict[ResourceKind, int]) -> dict[ResourceKind, int]:
+    if not value or any(n <= 0 for n in value.values()):
+        raise ValueError("a recipe needs at least one material, each at least once")
+    return value
+
+
+class Recipe(BaseModel):
+    """מתכון בסדנה: מה מכינים, ואילו חומרים מהתיק זה עולה."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    kind: ItemKind
+    item: str                   # ה-id של הפריט שמקבלים
+    needs: Annotated[dict[ResourceKind, int], AfterValidator(_check_needs)]

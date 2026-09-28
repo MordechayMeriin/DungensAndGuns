@@ -30,18 +30,21 @@ def generate_maze(w: int, h: int) -> Grid:
     return grid
 
 
-def path_exists(grid: Grid, start: tuple[int, int], goal: tuple[int, int]) -> bool:
-    """האם אפשר ללכת ברגל (רק על רצפה) מ-start ל-goal."""
+def reachable(grid: Grid, start: tuple[int, int]) -> set[tuple[int, int]]:
+    """כל המשבצות שאפשר להגיע אליהן ברגל (רק על רצפה) מ-start."""
     rows, cols = len(grid), len(grid[0])
     seen = {start}
     queue = [start]
     while queue:
         x, y = queue.pop()
-        if (x, y) == goal:
-            return True
         for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
             if (0 <= nx < cols and 0 <= ny < rows
                     and (nx, ny) not in seen and grid[ny][nx] == Tile.FLOOR):
                 seen.add((nx, ny))
                 queue.append((nx, ny))
-    return False
+    return seen
+
+
+def path_exists(grid: Grid, start: tuple[int, int], goal: tuple[int, int]) -> bool:
+    """האם אפשר ללכת ברגל (רק על רצפה) מ-start ל-goal."""
+    return goal in reachable(grid, start)

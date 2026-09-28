@@ -5,7 +5,8 @@ import pygame
 
 from ..config import SCREEN_H, SCREEN_W
 from ..data import CATALOG
-from ..models import GameState, WeaponKind
+from ..models import GameState, ItemKind, WeaponKind
+from ..systems import crafting
 from ..systems.shop import ShopKind, ShopRow, shop_sections
 from . import colors
 from .canvas import Canvas
@@ -17,6 +18,19 @@ SCROLL_KEYS = {pygame.K_UP: -60, pygame.K_DOWN: 60, pygame.K_PAGEUP: -420,
 def row_label(state: GameState, row: ShopRow) -> str:
     inv, item = state.inventory, row.item
     match row.kind:
+        case ShopKind.CRAFT:
+            match row.recipe.kind:
+                case ItemKind.KEY:
+                    name = "%s (יש לך %d)" % (item.name, inv.keys)
+                case ItemKind.AMMO:
+                    name = "%s (%d)" % (item.name, item.pack)
+                case ItemKind.FOOD:
+                    name = "%s (+%d חיים, יש לך %d)" % (item.name, item.heal, inv.food_count(item.id))
+                case _:
+                    name = item.name
+            needs = ", ".join("%d %s (יש %d)" % (n, CATALOG.resource(k).material, inv.material_count(k))
+                              for k, n in row.recipe.needs.items())
+            return "%s   צריך: %s" % (name, needs)
         case ShopKind.WEAPON:
             if item.kind == WeaponKind.MELEE:
                 return "%s   נזק %d-%d | מכה מקרוב | בלי תחמושת" % (item.name, *item.dmg)
@@ -30,10 +44,15 @@ def row_label(state: GameState, row: ShopRow) -> str:
             have = inv.throwable_count(item.id)
             if item.id == "smoke":
                 return "%s   מסתיר אותך מהאויבים (יש לך %d)" % (item.name, have)
+            if item.wall_power:
+                walls = "שובר גם קיר משוריין" if item.wall_power >= 2 else "שובר קיר רגיל"
+                return "%s   %s | מניחים ובורחים - בום אחרי 3 שניות (יש לך %d)" % (item.name, walls, have)
             return "%s   נזק %d-%d בכל הסביבה (יש לך %d)" % (item.name, *item.dmg, have)
         case ShopKind.AMMO:
             return "%s   %s | %d %s בחפיסה (יש לך %d)" % (
                 item.name, item.desc, item.pack, item.unit, inv.ammo_count(item.id))
+        case ShopKind.KEY:
+            return "%s   %s (יש לך %d)" % (item.name, item.desc, inv.keys)
         case ShopKind.POTION:
             return "%s   מחזירה %d חיים (יש לך %d)" % (
                 item.name, item.heal, inv.potion_count(item.id))
@@ -97,7 +116,16 @@ class ShopView:
         screen.blit(text, (rect.right - 10 - text.get_width(), rect.y + 15))
 
         btn = pygame.Rect(rect.x + 8, rect.y + 12, 110, 22)
-        if row.owned:
+        if row.need_rank is not None:
+            color, label = (62, 70, 96), "דרגת %s" % row.need_rank.name
+        elif row.kind == ShopKind.CRAFT:
+            if row.owned:
+                color, label = (85, 85, 85), "יש לך"
+            elif not crafting.missing(state, row.recipe):
+                color, label = (58, 105, 150), "הכן"
+            else:
+                color, label = (90, 60, 60), "חסר חומרים"
+        elif row.owned:
             color, label = (85, 85, 85), "נרכש"
         elif state.inventory.money >= item.price:
             color, label = (58, 125, 58), "קנה %d" % item.price

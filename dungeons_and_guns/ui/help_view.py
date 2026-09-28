@@ -1,0 +1,51 @@
+# -*- coding: utf-8 -*-
+"""מסך ההוראות - מופיע כל פעם שמפעילים את המשחק, לפני התפריט הראשי."""
+
+import pygame
+
+from ..config import SCREEN_H, SCREEN_W, TITLE
+from . import colors
+from .canvas import Canvas
+
+# (כותרת, שורות)
+SECTIONS = [
+    ("המטרה", [
+        "ללכת במבוך ולהגיע ליציאה (הריבוע עם החץ הצהוב) - ומשם לשלב הבא.",
+        "אויבים עם כלי נשק יורים עליך. מחסלים אותם ומקבלים כסף ונקודות דרגה.",
+        "דרגה גבוהה פותחת בחנות נשק חזק יותר. בכל שלב יש משימה עם שעון - הצלחת? פרס!",
+    ]),
+    ("מקשים", [
+        "חצים = תזוזה   |   רווח = להשתמש במה שנבחר בשורה למטה (לירות, לשתות, לאכול, להניח חבלה)",
+        "1-9 ו-0, Z/X או גלגלת = לבחור משבצת   |   E = התיק   |   Y = חנות וסדנה",
+        "Q = איסוף משאב / פתיחת תיבה / פתיחת שער / מעבר לשלב הבא",
+        "T = תרופה   |   F = אוכל   |   M = קול   |   Esc = תפריט   |   R אחרי מוות = מחדש",
+    ]),
+    ("דברים שכדאי לדעת", [
+        "משאבים (עץ, מכרות, חיות) נותנים כסף וחומרים. בסדנה (Y) מכינים מהחומרים תחמושת, ציוד, אוכל ומפתחות.",
+        "לחלק מהמשאבים צריך כלי: מסור לעץ, מכוש למכרות, מגל לשדות, חכה לדגים, לפיד למערות.",
+        "שער נעול פותחים עם מפתח (Q). מאחורי שערים מחכות תיבות ומשאבים.",
+        "TNT שובר קיר רגיל, סמטקס שובר גם קיר משוריין: מניחים ליד הקיר עם רווח - ובורחים!",
+    ]),
+]
+
+
+def draw_help(canvas: Canvas) -> None:
+    screen = canvas.screen
+    screen.fill((20, 20, 24))
+    canvas.blit_centered_x(canvas.text(canvas.font_big, TITLE, colors.GOLD), 26)
+    canvas.blit_centered_x(canvas.text(canvas.font, "איך משחקים", (200, 200, 200)), 72)
+
+    y = 112
+    for title, lines in SECTIONS:
+        head = canvas.text(canvas.font, title, (255, 204, 102))
+        screen.blit(head, (SCREEN_W - 40 - head.get_width(), y))
+        y += 30
+        for line in lines:
+            text = canvas.text(canvas.font_small, line, (225, 225, 225))
+            screen.blit(text, (SCREEN_W - 50 - text.get_width(), y))
+            y += 22
+        y += 12
+
+    bright = (pygame.time.get_ticks() // 600) % 2 == 0
+    canvas.blit_centered_x(canvas.text(canvas.font, "לחץ על מקש כלשהו כדי להמשיך",
+                                       (255, 255, 255) if bright else (170, 170, 170)), SCREEN_H - 50)

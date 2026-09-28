@@ -6,7 +6,7 @@ import random
 
 from ..data import CATALOG
 from ..models import GameState, WheelOutcome, WheelSlice, WheelSpin
-from . import health
+from . import health, ranks
 from .inventory import give_random_gear, give_random_tool, give_weapon
 
 FRICTION = 0.975            # בערך שלוש שניות סיבוב
@@ -73,13 +73,14 @@ def apply(state: GameState, slice_: WheelSlice) -> str:
             inv.add_throwable(item.id, count)
             return "זכית ב-%d %s!" % (count, item.name)
         case WheelOutcome.WEAPON:
-            # קודם בוחרים מחלקה באקראי, ואז נשק מתוכה - כך לכל מחלקה סיכוי שווה
-            missing = [w for w in CATALOG.weapons
-                       if not w.is_throwable and w.id not in inv.weapons]
+            # רק נשק שהדרגה שלך מרשה. קודם בוחרים מחלקה באקראי, ואז נשק מתוכה -
+            # כך לכל מחלקה סיכוי שווה
+            missing = [w for w in CATALOG.weapons if not w.is_throwable
+                       and w.id not in inv.weapons and ranks.rank_needed(state, w) is None]
             cats = sorted(set(w.cat for w in missing))
             if not cats:
                 inv.money += 300
-                return "יש לך כבר את כל הנשקים - קיבלת 300 כסף"
+                return "יש לך כבר כל נשק שהדרגה שלך מרשה - קיבלת 300 כסף"
             cat = random.choice(cats)
             weapon = random.choice([w for w in missing if w.cat == cat])
             give_weapon(inv, weapon)
@@ -96,6 +97,9 @@ def apply(state: GameState, slice_: WheelSlice) -> str:
                 inv.money += 300
                 return "יש לך כבר את כל הציוד - קיבלת 300 כסף"
             return "זכית בציוד: %s!" % item.name
+        case WheelOutcome.KEYS:
+            inv.keys += 2
+            return "זכית ב-2 מפתחות! (יש לך %d)" % inv.keys
         case WheelOutcome.HEAL:
             player.hp = player.max_hp
             return "החיים שלך חזרו למלא!"
