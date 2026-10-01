@@ -18,6 +18,7 @@ CRATE_REACH = 34
 EXIT_REACH = 24
 FISH_COOLDOWN_MS = 9000
 GATE_REACH = TILE * 1.3
+COW_SICK_CHANCE = 0.05     # חליבת פרה - סיכוי לחלות (כמו אוכל נא)
 
 
 # ---------- מה נמצא ליד השחקן ----------
@@ -122,7 +123,7 @@ def harvest(state: GameState, res: Resource) -> None:
             state.say("כרית בהר הגעש! +%d כסף%s אבל נכווית (-10 חיים)" % (gain, got))
         else:
             state.say("כרית בהר הגעש! +%d כסף%s" % (gain, got))
-    elif res.kind == ResourceKind.COW and not state.player.sick and random.random() < 0.2:
+    elif res.kind == ResourceKind.COW and not state.player.sick and random.random() < COW_SICK_CHANCE:
         health.infect(state)
         state.say("נדבקת ממחלה מהפרה! רק תרופה גדולה תרפא אותך")
     else:
@@ -161,9 +162,9 @@ def go_fishing(state: GameState, tile: tuple[int, int]) -> None:
     state.play("splash")
     gain = random.randint(9, 16)
     state.inventory.money += gain
-    state.inventory.add_food("fish")
+    state.inventory.add_food("raw_fish")
     level.fish_cooldown[tile] = state.now + FISH_COOLDOWN_MS
-    state.say("דגת דג! +%d כסף וגם דג לאכול" % gain)
+    state.say("דגת דג! +%d כסף וגם דג נא (כדאי לבשל בתנור)" % gain)
 
 
 def interact_hint(state: GameState) -> str:

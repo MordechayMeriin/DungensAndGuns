@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """תחמושת, ציוד, כלי עבודה, תרופות, אוכל וגלגל המזל."""
 
-from ..models import AmmoType, Food, Gear, Key, Potion, Tool, WheelSlice, WheelTicket
+from ..models import AmmoType, Food, Gear, Key, Oven, Poison, Potion, Tool, WheelSlice, WheelTicket
 from ..models import GearCategory as G
 from ..models import WheelOutcome as W
 
@@ -46,20 +46,31 @@ TOOLS = [
 
 KEY = Key(id="key", name="מפתח", price=20, desc="פותח שער נעול אחד ונעלם")
 
+POISON = Poison(id="poison", name="רעל", price=110, ammo="ammo_arrow", arrows=15, dps=5,
+                seconds=5, desc="מרעיל 15 חיצים לקשת: אויב שנפגע מאבד חיים עוד 5 שניות")
+
 POTIONS = [
     Potion(id="small",  name="תרופה קטנה",    heal=25,  price=40,  art="potion_small"),
     Potion(id="medium", name="תרופה בינונית", heal=60,  price=90,  art="potion_medium"),
     Potion(id="large",  name="תרופה גדולה",   heal=120, price=160, art="potion_large"),
 ]
 
-# אוכל - לא קונים: מכינים בסדנה מהחומרים של החווה (ראו recipes.py), ודגים במים עם חכה
+# אוכל - לא קונים: מכינים בסדנה מהחומרים של החווה (ראו recipes.py), ודגים במים עם חכה.
+# מה שיוצא מהסדנה ומהמים הוא נא (cooks_into) - מבשלים בתנור, אחרת יש 5% סיכוי לחלות.
+# גבינה לא צריך לבשל.
 FOODS = [
-    Food(id="bread",    name="לחם",   heal=15, desc="לחם טרי מחיטה"),
-    Food(id="omelette", name="חביתה", heal=15, desc="חביתה משתי ביצים"),
-    Food(id="cheese",   name="גבינה", heal=20, desc="גבינה מחלב"),
-    Food(id="cake",     name="עוגה",  heal=35, desc="עוגה גדולה - מחזירה הרבה חיים"),
-    Food(id="fish",     name="דג",    heal=20, desc="דג טרי - מקבלים כשדגים עם חכה"),
+    Food(id="dough",    name="בצק",          heal=15, cooks_into="bread",    desc="אופים בתנור ומקבלים לחם"),
+    Food(id="eggs",     name="ביצים טרופות", heal=15, cooks_into="omelette", desc="מטגנים בתנור ומקבלים חביתה"),
+    Food(id="batter",   name="בלילת עוגה",   heal=35, cooks_into="cake",     desc="אופים בתנור ומקבלים עוגה"),
+    Food(id="raw_fish", name="דג נא",        heal=20, cooks_into="fish",     desc="מקבלים כשדגים עם חכה - כדאי לבשל"),
+    Food(id="bread",    name="לחם",          heal=15, desc="לחם טרי מהתנור"),
+    Food(id="omelette", name="חביתה",        heal=15, desc="חביתה משתי ביצים"),
+    Food(id="cheese",   name="גבינה",        heal=20, desc="גבינה מחלב - לא צריך לבשל"),
+    Food(id="cake",     name="עוגה",         heal=35, desc="עוגה גדולה - מחזירה הרבה חיים"),
+    Food(id="fish",     name="דג מטוגן",     heal=20, desc="דג מבושל מהתנור"),
 ]
+
+OVEN = Oven(id="oven", name="תנור", price=0, uses=3, desc="מבשלים בו 3 פעמים ואז הוא נגמר")
 
 # גלגל המזל - שבע משבצות טובות ושלוש רעות, מפוזרות מסביב
 WHEEL_TICKET = WheelTicket(id="wheel", name="גלגל המזל", price=200,

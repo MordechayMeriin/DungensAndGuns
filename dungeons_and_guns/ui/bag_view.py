@@ -50,9 +50,13 @@ def bag_groups(state: GameState) -> list[Group]:
                  for f in CATALOG.foods if inv.food_count(f.id) > 0])
     ammo = [Entry(a.name, str(inv.ammo_count(a.id)), a)
             for a in CATALOG.ammo_types if inv.ammo_count(a.id) > 0]
+    if inv.poison_arrows:
+        ammo.append(Entry("חיצים מורעלים", str(inv.poison_arrows), CATALOG.poison))
     materials = [Entry(r.material, str(inv.material_count(r.kind)), art="mat_%s" % r.kind)
                  for r in CATALOG.resources if r.material and inv.material_count(r.kind) > 0]
     owned = ([Entry(CATALOG.key.name, str(inv.keys), CATALOG.key)] if inv.keys else [])
+    if inv.oven_uses:
+        owned.append(Entry("%s (בישולים)" % CATALOG.oven.name, str(inv.oven_uses), CATALOG.oven))
     owned += ([Entry(t.name, "", t) for t in CATALOG.tools if t.id in inv.tools]
              + [Entry(g.name, "", g) for g in CATALOG.gear if g.id in inv.gear])
     groups = [Group("נשק", weapons), Group("תרופות ואוכל", usable), Group("תחמושת", ammo),

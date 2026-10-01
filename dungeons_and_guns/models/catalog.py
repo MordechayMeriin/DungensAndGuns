@@ -101,6 +101,21 @@ class Key(ItemBase):
     """מפתח - פותח שער אחד ונעלם."""
 
 
+class Oven(ItemBase):
+    """תנור - בונים מלבנים בסדנה (אי אפשר לקנות), ומבשלים בו כמה פעמים עד שהוא נגמר."""
+
+    uses: int = Field(gt=0)
+
+
+class Poison(ItemBase):
+    """רעל לחיצים: מרעיל כמה חיצים, ואויב שנפגע מחץ מורעל מאבד חיים כל שנייה לכמה שניות."""
+
+    ammo: str                       # איזו תחמושת מורעלת (חיצים)
+    arrows: int = Field(gt=0)       # לכמה חיצים מספיק רעל אחד
+    dps: int = Field(gt=0)          # כמה חיים יורדים כל שנייה
+    seconds: int = Field(gt=0)      # כמה שניות הרעל פועל
+
+
 class Potion(ItemBase):
     heal: int = Field(gt=0)
 
@@ -110,6 +125,12 @@ class Food(ItemBase):
 
     price: int = 0
     heal: int = Field(gt=0)
+    cooks_into: str | None = None   # אוכל נא: למה הוא הופך כשמבשלים אותו בתנור
+
+    @property
+    def raw(self) -> bool:
+        """אוכל נא - מי שאוכל אותו בלי לבשל עלול לחלות."""
+        return self.cooks_into is not None
 
 
 class WheelTicket(ItemBase):
@@ -165,3 +186,4 @@ class Recipe(BaseModel):
     kind: ItemKind
     item: str                   # ה-id של הפריט שמקבלים
     needs: Annotated[dict[ResourceKind, int], AfterValidator(_check_needs)]
+    potions: dict[str, int] = Field(default_factory=dict)  # תרופות שנכנסות למתכון (נוסף לחומרים)

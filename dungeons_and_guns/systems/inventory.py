@@ -61,6 +61,10 @@ def give_item(inv: Inventory, kind: ItemKind, item: ItemBase) -> None:
             inv.add_food(item.id)
         case ItemKind.KEY:
             inv.keys += 1
+        case ItemKind.OVEN:
+            inv.oven_uses += item.uses
+        case ItemKind.POISON:
+            inv.poison_arrows += item.arrows
 
 
 def give_random_tool(inv: Inventory) -> Tool | None:

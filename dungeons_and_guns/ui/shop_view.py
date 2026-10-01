@@ -22,15 +22,25 @@ def row_label(state: GameState, row: ShopRow) -> str:
             match row.recipe.kind:
                 case ItemKind.KEY:
                     name = "%s (יש לך %d)" % (item.name, inv.keys)
+                case ItemKind.POISON:
+                    name = "%s ל-%d חיצים" % (item.name, item.arrows)
+                case ItemKind.OVEN:
+                    name = "%s - %d בישולים (נשארו לך %d)" % (item.name, item.uses, inv.oven_uses)
                 case ItemKind.AMMO:
                     name = "%s (%d)" % (item.name, item.pack)
                 case ItemKind.FOOD:
-                    name = "%s (+%d חיים, יש לך %d)" % (item.name, item.heal, inv.food_count(item.id))
+                    raw = " (נא)" if item.raw else ""
+                    name = "%s%s +%d חיים" % (item.name, raw, item.heal)
                 case _:
                     name = item.name
-            needs = ", ".join("%d %s (יש %d)" % (n, CATALOG.resource(k).material, inv.material_count(k))
-                              for k, n in row.recipe.needs.items())
+            needs = ", ".join(["%d %s (יש %d)" % (n, CATALOG.resource(k).material, inv.material_count(k))
+                               for k, n in row.recipe.needs.items()]
+                              + ["%d %s (יש %d)" % (n, CATALOG.potion(pid).name, inv.potion_count(pid))
+                                 for pid, n in row.recipe.potions.items()])
             return "%s   צריך: %s" % (name, needs)
+        case ShopKind.COOK:
+            return "%s ← %s   (יש לך %d %s | בתנור נשארו %d בישולים)" % (
+                row.raw.name, item.name, inv.food_count(row.raw.id), row.raw.name, inv.oven_uses)
         case ShopKind.WEAPON:
             if item.kind == WeaponKind.MELEE:
                 return "%s   נזק %d-%d | מכה מקרוב | בלי תחמושת" % (item.name, *item.dmg)
@@ -51,6 +61,8 @@ def row_label(state: GameState, row: ShopRow) -> str:
         case ShopKind.AMMO:
             return "%s   %s | %d %s בחפיסה (יש לך %d)" % (
                 item.name, item.desc, item.pack, item.unit, inv.ammo_count(item.id))
+        case ShopKind.POISON:
+            return "%s   %s (מורעלים עכשיו: %d)" % (item.name, item.desc, inv.poison_arrows)
         case ShopKind.KEY:
             return "%s   %s (יש לך %d)" % (item.name, item.desc, inv.keys)
         case ShopKind.POTION:
@@ -118,10 +130,17 @@ class ShopView:
         btn = pygame.Rect(rect.x + 8, rect.y + 12, 110, 22)
         if row.need_rank is not None:
             color, label = (62, 70, 96), "דרגת %s" % row.need_rank.name
+        elif row.kind == ShopKind.COOK:
+            if state.inventory.oven_uses <= 0:
+                color, label = (90, 60, 60), "אין תנור"
+            elif state.inventory.food_count(row.raw.id) <= 0:
+                color, label = (90, 60, 60), "אין מה לבשל"
+            else:
+                color, label = (176, 96, 40), "בשל"
         elif row.kind == ShopKind.CRAFT:
             if row.owned:
                 color, label = (85, 85, 85), "יש לך"
-            elif not crafting.missing(state, row.recipe):
+            elif crafting.can_craft(state, row.recipe):
                 color, label = (58, 105, 150), "הכן"
             else:
                 color, label = (90, 60, 60), "חסר חומרים"

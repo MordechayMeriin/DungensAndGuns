@@ -6,7 +6,7 @@ from enum import StrEnum
 from pydantic import BaseModel, ConfigDict
 
 from ..data import CATALOG
-from ..models import GameState, ItemBase, ItemKind, Rank, Recipe
+from ..models import Food, GameState, ItemBase, ItemKind, Rank, Recipe
 from . import crafting, ranks, wheel
 from .inventory import give_item
 
@@ -22,6 +22,8 @@ class ShopKind(StrEnum):
     GEAR = "gear"
     POTION = "potion"
     CRAFT = "craft"             # סדנה - משלמים בחומרים מהתיק ולא בכסף
+    COOK = "cook"               # תנור - אוכל נא הופך למבושל
+    POISON = "poison"           # רעל לחיצים
 
 
 class ShopRow(BaseModel):
@@ -32,6 +34,7 @@ class ShopRow(BaseModel):
     owned: bool = False         # פריט שקונים פעם אחת וכבר נקנה
     recipe: Recipe | None = None    # רק בשורות של הסדנה
     need_rank: Rank | None = None   # נשק שעוד אין לך דרגה מספיק גבוהה בשבילו
+    raw: Food | None = None         # רק בשורות של התנור: מה מבשלים
 
 
 class ShopSection(BaseModel):
@@ -46,6 +49,9 @@ def shop_sections(state: GameState) -> list[ShopSection]:
     sections = [ShopSection(title="סדנה - מכינים מהחומרים שאספת", rows=[
         ShopRow(kind=ShopKind.CRAFT, item=CATALOG.item(r.kind, r.item), recipe=r,
                 owned=crafting.already_made(state, r)) for r in CATALOG.recipes])]
+    sections.append(ShopSection(title="תנור - מבשלים אוכל נא", rows=[
+        ShopRow(kind=ShopKind.COOK, item=CATALOG.food(f.cooks_into), raw=f)
+        for f in CATALOG.raw_foods]))
     sections.append(ShopSection(title="כלים", rows=[
         ShopRow(kind=ShopKind.TOOL, item=t, owned=t.id in inv.tools) for t in CATALOG.tools]
         + [ShopRow(kind=ShopKind.KEY, item=CATALOG.key)]))
@@ -61,7 +67,8 @@ def shop_sections(state: GameState) -> list[ShopSection]:
                                     need_rank=ranks.rank_needed(state, w)))
         sections.append(ShopSection(title=cat, rows=rows))
     sections.append(ShopSection(title="תחמושת", rows=[
-        ShopRow(kind=ShopKind.AMMO, item=a) for a in CATALOG.ammo_types]))
+        ShopRow(kind=ShopKind.AMMO, item=a) for a in CATALOG.ammo_types]
+        + [ShopRow(kind=ShopKind.POISON, item=CATALOG.poison)]))
     sections.append(ShopSection(title="גלגל המזל", rows=[
         ShopRow(kind=ShopKind.WHEEL, item=CATALOG.wheel_ticket)]))
     for cat in CATALOG.gear_categories:
@@ -78,6 +85,8 @@ def buy(state: GameState, row: ShopRow) -> bool:
     inv, item = state.inventory, row.item
     if row.kind == ShopKind.CRAFT:
         return crafting.craft(state, row.recipe)
+    if row.kind == ShopKind.COOK:
+        return crafting.cook(state, row.raw)
     if row.kind == ShopKind.WEAPON and (rank := ranks.rank_needed(state, item)) is not None:
         state.play("no", gap=400)
         state.say("צריך דרגת %s כדי לקנות %s (יש לך %d מתוך %d נקודות)"
@@ -97,6 +106,8 @@ def buy(state: GameState, row: ShopRow) -> bool:
         state.say("קנית %s! קיבלת גם %d %s" % (item.name, ammo.pack, ammo.name))
     elif row.kind == ShopKind.AMMO:
         state.say("קנית %d %s!" % (item.pack, item.name))
+    elif row.kind == ShopKind.POISON:
+        state.say("קנית רעל! %d החיצים הבאים מורעלים" % inv.poison_arrows)
     else:
         state.say("קנית %s!" % item.name)
     return True

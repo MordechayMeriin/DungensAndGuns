@@ -5,7 +5,7 @@ from functools import cached_property
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from ..models import (AmmoType, Food, Gear, GearCategory, ItemBase, ItemKind, Key, Potion, Rank, Recipe, ResourceKind,
+from ..models import (AmmoType, Food, Gear, GearCategory, ItemBase, ItemKind, Key, Oven, Poison, Potion, Rank, Recipe, ResourceKind,
                       ResourceType, Tool, Weapon, WeaponCategory, WeaponKind, WheelSlice,
                       WheelTicket)
 
@@ -27,6 +27,8 @@ class Catalog(BaseModel):
     potions: list[Potion]
     foods: list[Food]
     key: Key
+    oven: Oven
+    poison: Poison
     resources: list[ResourceType]
     recipes: list[Recipe]
     ranks: list[Rank]
@@ -61,9 +63,20 @@ class Catalog(BaseModel):
             if (recipe.kind == ItemKind.THROWABLE) != (isinstance(item, Weapon) and item.is_throwable):
                 raise ValueError("recipe %s: throwables and only throwables use kind THROWABLE"
                                  % recipe.item)
+            unknown = set(recipe.potions) - {p.id for p in self.potions}
+            if unknown:
+                raise ValueError("recipe %s needs unknown potions: %s" % (recipe.item, sorted(unknown)))
             if not set(recipe.needs) <= materials:
                 raise ValueError("recipe %s needs resources that give no material: %s"
                                  % (recipe.item, sorted(set(recipe.needs) - materials)))
+        if self.poison.ammo not in ammo_ids:
+            raise ValueError("poison is for unknown ammo %s" % self.poison.ammo)
+        food_ids = {f.id for f in self.foods}
+        for f in self.foods:
+            if f.cooks_into is not None and (f.cooks_into not in food_ids
+                                             or self.food(f.cooks_into).raw):
+                raise ValueError("food %s cooks into %s, which is not a cooked food"
+                                 % (f.id, f.cooks_into))
         points = [r.points for r in self.ranks]
         if not points or points[0] != 0 or points != sorted(set(points)):
             raise ValueError("ranks must start at 0 points and go strictly up: %s" % points)
@@ -141,10 +154,12 @@ class Catalog(BaseModel):
                 return self._gear[item_id]
             case ItemKind.FOOD:
                 return self.food(item_id)
-            case ItemKind.KEY:
-                if item_id != self.key.id:
+            case ItemKind.KEY | ItemKind.OVEN | ItemKind.POISON:
+                single = {ItemKind.KEY: self.key, ItemKind.OVEN: self.oven,
+                          ItemKind.POISON: self.poison}[kind]
+                if item_id != single.id:
                     raise KeyError(item_id)
-                return self.key
+                return single
 
     def rank_for(self, points: int) -> Rank:
         """הדרגה הכי גבוהה שהנקודות מספיקות לה."""
@@ -165,6 +180,10 @@ class Catalog(BaseModel):
     @property
     def gear_categories(self) -> list[GearCategory]:
         return list(GearCategory)
+
+    @cached_property
+    def raw_foods(self) -> list[Food]:
+        return [f for f in self.foods if f.raw]
 
     @cached_property
     def throwables(self) -> list[Weapon]:

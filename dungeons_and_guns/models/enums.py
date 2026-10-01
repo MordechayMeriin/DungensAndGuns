@@ -77,6 +77,8 @@ class ItemKind(StrEnum):
     POTION = "potion"
     FOOD = "food"
     KEY = "key"
+    OVEN = "oven"
+    POISON = "poison"
 
 
 class MissionKind(StrEnum):

@@ -11,6 +11,7 @@ from ..data import CATALOG
 from ..models import GameState
 from ..systems import missions
 from ..systems.interaction import interact_hint
+from ..systems.inventory import current_weapon
 from ..systems.ranks import current_rank
 from . import colors
 from .canvas import Canvas
@@ -90,6 +91,9 @@ def draw_hud(canvas: Canvas, state: GameState) -> None:
     item = state.inventory.selected_item
     if item is not None:
         entry_name = CATALOG.item(item.kind, item.id).name
+        weapon = current_weapon(state)
+        if weapon is not None and weapon.ammo == CATALOG.poison.ammo and state.inventory.poison_arrows:
+            entry_name += " (חיצים מורעלים: %d)" % state.inventory.poison_arrows
         canvas.blit_centered_x(canvas.text(canvas.font_small, entry_name, (230, 230, 230)),
                                HOTBAR_Y - 22)
 

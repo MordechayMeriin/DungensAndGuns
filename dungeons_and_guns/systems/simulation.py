@@ -24,6 +24,7 @@ def step(state: GameState, inp: PlayerInput, window_open: bool = False) -> None:
     update_player(state, inp)
     enemies.update_enemies(state)
     combat.update_bullets(state)
+    combat.update_poison(state)
     health.update_sickness(state)
     combat.update_grenades(state)
     combat.update_smokes(state)

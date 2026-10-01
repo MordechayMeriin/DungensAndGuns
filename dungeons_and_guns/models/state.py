@@ -93,6 +93,8 @@ class Inventory(_Model):
     throwables: dict[str, int] = Field(default_factory=dict)  # רימון -> כמה יחידות
     potions: dict[str, int] = Field(default_factory=dict)
     keys: int = 0                                               # מפתחות לשערים
+    oven_uses: int = 0                                          # כמה בישולים נשארו בתנור
+    poison_arrows: int = 0                                      # כמה מהחיצים הבאים מורעלים
     food: dict[str, int] = Field(default_factory=dict)          # אוכל מהסדנה -> כמה מנות
     materials: dict[ResourceKind, int] = Field(default_factory=dict)  # משאב -> כמה פריטים נאספו
 

@@ -42,6 +42,8 @@ class Enemy(Entity):
     max_hp: float
     r: int = 12
     last_shot: int = 0
+    poison_until: int = 0       # עד מתי הרעל פועל עליו
+    poison_tick: int = 0        # מתי ירדו לו חיים מהרעל בפעם האחרונה
 
 
 class Bullet(Entity):
@@ -52,6 +54,7 @@ class Bullet(Entity):
     acc: float
     rng: float
     from_player: bool
+    poison: bool = False        # חץ מורעל
     traveled: float = 0.0
     dead: bool = False
 

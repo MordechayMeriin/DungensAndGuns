@@ -134,6 +134,9 @@ class WorldView:
     def _enemies(self, state: GameState) -> None:
         for e in state.level.enemies:
             pygame.draw.circle(self.canvas.screen, colors.ENEMY, (self.sx(e.x), self.sy(e.y)), e.r)
+            if e.poison_until > state.now:                     # מורעל - טבעת ירוקה
+                pygame.draw.circle(self.canvas.screen, (120, 230, 90),
+                                   (self.sx(e.x), self.sy(e.y)), e.r + 2, 2)
             self.canvas.bar(self.sx(e.x), self.sy(e.y) - e.r - 10, 26, e.hp / e.max_hp, (227, 51, 51))
 
     def _player(self, state: GameState) -> None:

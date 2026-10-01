@@ -335,19 +335,19 @@ def test_fishing_gives_money_and_a_fish_to_eat(state):
     money = state.inventory.money
     interaction.go_fishing(state, (3, 3))
     assert state.inventory.money > money
-    assert state.inventory.food_count("fish") == 1
-    assert SlotItem(kind=ItemKind.FOOD, id="fish") in state.inventory.hotbar
+    assert state.inventory.food_count("raw_fish") == 1
+    assert SlotItem(kind=ItemKind.FOOD, id="raw_fish") in state.inventory.hotbar
     state.player.hp = 50
-    health.eat(state, "fish")
-    assert state.player.hp == 50 + CATALOG.food("fish").heal
-    assert state.inventory.food_count("fish") == 0
+    health.eat(state, "raw_fish")
+    assert state.player.hp == 50 + CATALOG.food("raw_fish").heal
+    assert state.inventory.food_count("raw_fish") == 0
 
 
 def test_no_fish_while_fish_are_away(state):
     state.inventory.tools.add("rod")
     interaction.go_fishing(state, (3, 3))
     interaction.go_fishing(state, (3, 3))               # הדגים עוד לא חזרו
-    assert state.inventory.food_count("fish") == 1
+    assert state.inventory.food_count("raw_fish") == 1
 
 
 def test_harvest_gives_money_and_material(state):
@@ -360,6 +360,15 @@ def test_harvest_gives_money_and_material(state):
     assert state.inventory.material_count(ResourceKind.IRON) == 1
     assert "מטיל ברזל" in state.feedback.message
     assert iron not in state.level.resources
+
+
+@pytest.mark.parametrize("roll, sick", [(0.04, True), (0.06, False)])
+def test_cow_has_five_percent_to_make_you_sick(state, monkeypatch, roll, sick):
+    monkeypatch.setattr(interaction.random, "random", lambda: roll)
+    cow = Resource(x=state.player.x, y=state.player.y, kind=ResourceKind.COW)
+    state.level.resources.append(cow)
+    interaction.harvest(state, cow)
+    assert state.player.sick == sick
 
 
 def test_harvest_without_tool_gives_nothing(state):
@@ -376,19 +385,174 @@ def recipe_for(item_id):
 
 
 def test_workshop_makes_no_weapons_or_potions():
-    assert all(r.kind in (ItemKind.AMMO, ItemKind.GEAR, ItemKind.FOOD, ItemKind.KEY)
-               for r in CATALOG.recipes)
+    assert all(r.kind in (ItemKind.AMMO, ItemKind.GEAR, ItemKind.FOOD, ItemKind.KEY, ItemKind.OVEN,
+                          ItemKind.POISON) for r in CATALOG.recipes)
 
 
 def test_craft_food_then_eat_it(state):
-    recipe = recipe_for("bread")
+    recipe = recipe_for("dough")
     state.inventory.add_material(ResourceKind.WHEAT, 2)
     assert crafting.craft(state, recipe)
-    assert state.inventory.food_count("bread") == 1
+    assert state.inventory.food_count("dough") == 1
     state.player.hp = 50
     health.eat(state)
-    assert state.player.hp == 50 + CATALOG.food("bread").heal
+    assert state.player.hp == 50 + CATALOG.food("dough").heal
     assert state.inventory.food == {}
+
+
+# ---------- רעל ----------
+def bow_ready(state):
+    from dungeons_and_guns.systems.inventory import give_weapon
+    give_weapon(state.inventory, CATALOG.weapon("bow"))
+    state.inventory.select_slot(state.inventory.hotbar_index(SlotItem(kind=ItemKind.WEAPON, id="bow")))
+
+
+def test_buy_poison(state):
+    state.inventory.money = 200
+    assert shop.buy(state, ShopRow(kind=ShopKind.POISON, item=CATALOG.poison))
+    assert state.inventory.money == 200 - 110
+    assert state.inventory.poison_arrows == 15
+
+
+def test_craft_poison_from_medium_potion_cotton_and_wool(state):
+    recipe = recipe_for("poison")
+    state.inventory.add_material(ResourceKind.COTTON, 1)
+    state.inventory.add_material(ResourceKind.SHEEP, 1)
+    assert not crafting.craft(state, recipe)                 # אין תרופה בינונית
+    assert "תרופה בינונית" in state.feedback.message
+    state.inventory.add_potion("medium")
+    assert crafting.craft(state, recipe)
+    assert state.inventory.poison_arrows == 15
+    assert state.inventory.potion_count("medium") == 0
+    assert state.inventory.materials == {}
+
+
+def test_poison_goes_on_arrows_only(state):
+    state.inventory.poison_arrows = 15
+    combat.player_shoot(state)                               # גלוק - לא מורעל
+    assert not state.level.bullets[-1].poison and state.inventory.poison_arrows == 15
+    bow_ready(state)
+    state.now += 5000
+    combat.player_shoot(state)
+    assert state.level.bullets[-1].poison and state.inventory.poison_arrows == 14
+
+
+def test_poisoned_enemy_keeps_losing_hp_and_can_die(state):
+    enemy = make_enemy(state.level, 500, 500)
+    state.level.enemies.append(enemy)
+    combat.poison_enemy(state, enemy)
+    hp = enemy.hp
+    state.now += 1000
+    combat.update_poison(state)
+    assert enemy.hp == hp - CATALOG.poison.dps
+    state.now += 1000
+    combat.update_poison(state)
+    assert enemy.hp == hp - 2 * CATALOG.poison.dps
+    enemy.hp = 1
+    points = state.player.points
+    state.now += 1000
+    combat.update_poison(state)
+    assert enemy not in state.level.enemies
+    assert state.player.points > points and "רעל" in state.feedback.message
+
+
+def test_poison_wears_off(state):
+    enemy = make_enemy(state.level, 500, 500)
+    state.level.enemies.append(enemy)
+    combat.poison_enemy(state, enemy)
+    for _ in range(20):
+        state.now += 1000
+        combat.update_poison(state)
+    assert enemy.hp == enemy.max_hp - CATALOG.poison.dps * CATALOG.poison.seconds
+
+
+# ---------- תנור ----------
+def build_oven(state):
+    recipe = recipe_for("oven")
+    for kind, n in recipe.needs.items():
+        state.inventory.add_material(kind, n)
+    assert crafting.craft(state, recipe)
+
+
+def test_oven_is_built_from_bricks_not_bought(state):
+    assert recipe_for("oven").needs == {ResourceKind.BRICKS: 3}
+    rows = [r for s in shop.shop_sections(state) for r in s.rows]
+    assert not any(r.kind != ShopKind.CRAFT and r.item.id == "oven" for r in rows)
+    build_oven(state)
+    assert state.inventory.oven_uses == 3
+    assert "תנור" in state.feedback.message
+
+
+def test_cooking_turns_raw_into_cooked_and_uses_the_oven(state):
+    build_oven(state)
+    state.inventory.add_food("raw_fish", 2)
+    raw = CATALOG.food("raw_fish")
+    assert crafting.cook(state, raw)
+    assert state.inventory.food_count("raw_fish") == 1
+    assert state.inventory.food_count("fish") == 1
+    assert state.inventory.oven_uses == 2
+
+
+def test_oven_runs_out_after_three_cookings(state):
+    build_oven(state)
+    state.inventory.add_food("dough", 4)
+    dough = CATALOG.food("dough")
+    for _ in range(3):
+        assert crafting.cook(state, dough)
+    assert state.inventory.oven_uses == 0
+    assert "נגמר" in state.feedback.message
+    assert not crafting.cook(state, dough)
+    assert state.inventory.food_count("dough") == 1 and state.inventory.food_count("bread") == 3
+
+
+def test_cooked_food_takes_the_raw_hotbar_slot(state):
+    build_oven(state)
+    state.inventory.add_food("dough")
+    slot = state.inventory.hotbar_index(SlotItem(kind=ItemKind.FOOD, id="dough"))
+    crafting.cook(state, CATALOG.food("dough"))
+    assert state.inventory.hotbar[slot] == SlotItem(kind=ItemKind.FOOD, id="bread")
+
+
+def test_cannot_cook_without_oven(state):
+    state.inventory.add_food("raw_fish")
+    assert not crafting.cook(state, CATALOG.food("raw_fish"))
+    assert state.inventory.food_count("raw_fish") == 1
+    assert "תנור" in state.feedback.message
+
+
+def test_raw_food_can_make_you_sick(state, monkeypatch):
+    monkeypatch.setattr(health.random, "random", lambda: 0.01)     # בתוך ה-5%
+    state.inventory.add_food("raw_fish")
+    state.player.hp = 50
+    health.eat(state, "raw_fish")
+    assert state.player.sick
+
+
+def test_raw_food_usually_fine(state, monkeypatch):
+    monkeypatch.setattr(health.random, "random", lambda: 0.5)
+    state.inventory.add_food("raw_fish")
+    state.player.hp = 50
+    health.eat(state, "raw_fish")
+    assert not state.player.sick
+
+
+def test_cooked_food_never_makes_you_sick(state, monkeypatch):
+    monkeypatch.setattr(health.random, "random", lambda: 0.0)
+    state.inventory.add_food("fish")
+    state.inventory.add_food("cheese")                  # גבינה לא צריך לבשל
+    state.player.hp = 10
+    health.eat(state, "fish")
+    state.now += 1000
+    health.eat(state, "cheese")
+    assert not state.player.sick
+
+
+def test_eat_key_prefers_cooked_food(state):
+    state.inventory.add_food("raw_fish")
+    state.inventory.add_food("fish")
+    state.player.hp = 50
+    health.eat(state)
+    assert state.inventory.food_count("fish") == 0 and state.inventory.food_count("raw_fish") == 1
 
 
 def test_eat_picks_food_that_fits_missing_hp(state):

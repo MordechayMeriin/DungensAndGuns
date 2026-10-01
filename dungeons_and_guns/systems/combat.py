@@ -60,12 +60,16 @@ def player_shoot(state: GameState) -> None:
         return
 
     ammo = CATALOG.ammo_for(w)
+    poisoned = False
     if ammo:
         if inv.ammo_count(ammo.id) <= 0:
             state.play("no", gap=500)
             state.say("נגמרו לך %s! קנה בחנות או החלף נשק" % ammo.name)
             return
         inv.ammo[ammo.id] -= 1
+        if ammo.id == CATALOG.poison.ammo and inv.poison_arrows > 0:
+            inv.poison_arrows -= 1
+            poisoned = True
 
     state.play(weapon_sound(w), gap=40)
     if w.kind == WeaponKind.MELEE:
@@ -83,7 +87,8 @@ def player_shoot(state: GameState) -> None:
             angle = math.atan2(dy, dx) + random.uniform(-0.2, 0.2)
             dx, dy = math.cos(angle), math.sin(angle)
         state.level.bullets.append(Bullet(x=player.x, y=player.y, dx=dx, dy=dy, speed=w.speed,
-                                          dmg=w.dmg, acc=acc, rng=rng, from_player=True))
+                                          dmg=w.dmg, acc=acc, rng=rng, from_player=True,
+                                          poison=poisoned))
 
 
 def swing(state: GameState, w: Weapon) -> None:
@@ -158,6 +163,26 @@ def damage_enemy(state: GameState, e: Enemy, amount: float) -> None:
         kill_enemy(state, e, 20, 50, "חיסלת אויב", loot=True)
 
 
+def poison_enemy(state: GameState, e: Enemy) -> None:
+    """חץ מורעל פגע: מעכשיו האויב מאבד חיים כל שנייה, לכמה שניות."""
+    e.poison_until = state.now + CATALOG.poison.seconds * 1000
+    e.poison_tick = state.now
+    particles.spark(state.level, e.x, e.y, (120, 230, 90))
+
+
+def update_poison(state: GameState) -> None:
+    """כל שנייה - אויבים מורעלים מאבדים חיים. מי שמת מהרעל שווה כסף ונקודות כרגיל."""
+    level, dps = state.level, CATALOG.poison.dps
+    for e in list(level.enemies):
+        if e.poison_until <= e.poison_tick or state.now - e.poison_tick < 1000:
+            continue
+        e.poison_tick += 1000
+        e.hp -= dps
+        particles.spark(level, e.x, e.y - e.r, (120, 230, 90))
+        if e.hp <= 0:
+            kill_enemy(state, e, 20, 50, "האויב מת מהרעל")
+
+
 def kill_enemy(state: GameState, e: Enemy, low: int, high: int, headline: str,
                loot: bool = False) -> None:
     """אויב מת: כסף, נקודות דרגה (לפי הנשק שלו) ואולי גם התחמושת שלו."""
@@ -202,6 +227,8 @@ def update_bullets(state: GameState) -> None:
                     if random.random() < b.acc:
                         particles.spark(level, b.x, b.y, (255, 204, 51))
                         damage_enemy(state, e, random.uniform(*b.dmg))
+                        if b.poison and e in level.enemies:
+                            poison_enemy(state, e)
                     else:
                         particles.spark(level, b.x, b.y, (150, 150, 150))
                     break

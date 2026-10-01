@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """חיים, מחלה, תרופות ואוכל."""
 
+import random
+
 from ..data import CATALOG
 from ..models import GameState
 from .inventory import damage_multiplier
@@ -9,6 +11,7 @@ SICK_TICK_MS = 1800
 SICK_NAG_MS = 7000
 POTION_COOLDOWN_MS = 350
 MEAL_COOLDOWN_MS = 350
+RAW_FOOD_SICK_CHANCE = 0.05     # מי שאוכל אוכל נא עלול לחלות
 
 
 def _check_death(state: GameState) -> None:
@@ -113,6 +116,8 @@ def eat(state: GameState, food_id: str | None = None) -> None:
         state.say("אתה שבע - החיים שלך מלאים")
         return
     lacking = player.max_hp - player.hp
+    if food_id is None and any(not f.raw for f in have):
+        have = [f for f in have if not f.raw]          # F מעדיף אוכל מבושל
     enough = [f for f in have if f.heal >= lacking]
     food = min(enough, key=lambda f: f.heal) if enough else max(have, key=lambda f: f.heal)
     inv.food[food.id] -= 1
@@ -121,3 +126,6 @@ def eat(state: GameState, food_id: str | None = None) -> None:
     player.hp = min(player.max_hp, player.hp + food.heal)
     state.play("potion")
     state.say("אכלת %s! +%d חיים" % (food.name, food.heal))
+    if food.raw and not player.sick and random.random() < RAW_FOOD_SICK_CHANCE:
+        infect(state)
+        state.say("אכלת %s בלי לבשל ונדבקת במחלה! רק תרופה גדולה תעזור" % food.name)
