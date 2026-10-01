@@ -9,9 +9,11 @@ from ..config import TILE
 from ..models import (Bullet, Enemy, GameState, Grenade, MissionKind, SmokeCloud, Tile, Weapon,
                       WeaponCategory, WeaponKind)
 from . import health, missions, particles, ranks
-from .inventory import aim_bonus, current_weapon
+from .inventory import aim_bonus, current_weapon, gear_items, reduce_multiplier
 
 GRENADE_FUSE_MS = 900
+ENEMY_GRENADE_FUSE_MS = 1500    # רימון של אויב - יש קצת יותר זמן לברוח
+SMOKE_MISS = 0.5                # יורים על אויב בתוך עשן - חצי דיוק
 CHARGE_FUSE_MS = 3000           # לבנת חבלה: 3 שניות לברוח
 SMOKE_DURATION_MS = 7000
 PLAYER_HIT_RADIUS = 15
@@ -156,8 +158,8 @@ def break_walls(state: GameState, gr: Grenade) -> None:
 
 # ---------- פגיעה באויבים ----------
 def damage_enemy(state: GameState, e: Enemy, amount: float) -> None:
-    """פגיעה רגילה (קליע או מכה): אם האויב מת, מקבלים כסף ואולי גם תחמושת."""
-    e.hp -= amount
+    """פגיעה רגילה (קליע או מכה): הציוד של האויב מקטין אותה. אם הוא מת - כסף ושלל."""
+    e.hp -= amount * reduce_multiplier(gear_items(e.gear))
     state.play("hit", gap=30)
     if e.hp <= 0:
         kill_enemy(state, e, 20, 50, "חיסלת אויב", loot=True)
@@ -224,7 +226,8 @@ def update_bullets(state: GameState) -> None:
             for e in level.enemies:
                 if math.hypot(b.x - e.x, b.y - e.y) < e.r + 4:
                     b.dead = True
-                    if random.random() < b.acc:
+                    acc = b.acc * (SMOKE_MISS if in_smoke_at(state, e.x, e.y) else 1.0)
+                    if random.random() < acc:
                         particles.spark(level, b.x, b.y, (255, 204, 51))
                         damage_enemy(state, e, random.uniform(*b.dmg))
                         if b.poison and e in level.enemies:
@@ -275,24 +278,29 @@ def explode(state: GameState, gr: Grenade) -> None:
     state.play("explosion")
     particles.burst(level, gr.x, gr.y, 30, 5, 24,
                     ((255, 172, 44), (252, 96, 40), (250, 230, 130)))
-    for e in list(level.enemies):
+    for e in [] if gr.from_enemy else list(level.enemies):
         d = math.hypot(e.x - gr.x, e.y - gr.y)
         if d <= gr.radius:
-            e.hp -= random.uniform(*gr.weapon.dmg) * (1 - d / gr.radius * 0.6)
+            e.hp -= (random.uniform(*gr.weapon.dmg) * (1 - d / gr.radius * 0.6)
+                     * reduce_multiplier(gear_items(e.gear)))
             if e.hp <= 0:
                 kill_enemy(state, e, 25, 60, "פיצצת אויב")
     if gr.weapon.wall_power:
         break_walls(state, gr)
     d = math.hypot(player.x - gr.x, player.y - gr.y)
     if d <= gr.radius and player.invuln <= 0:
-        health.hurt(state, random.uniform(*gr.weapon.dmg) * 0.5 * (1 - d / gr.radius * 0.6))
-        state.say("נפגעת מה%s שלך!" % gr.weapon.name)
+        share = 1.0 if gr.from_enemy else 0.5
+        health.hurt(state, random.uniform(*gr.weapon.dmg) * share * (1 - d / gr.radius * 0.6))
+        state.say("נפגעת מרימון של אויב!" if gr.from_enemy else "נפגעת מה%s שלך!" % gr.weapon.name)
 
 
 def update_smokes(state: GameState) -> None:
     state.level.smokes = [c for c in state.level.smokes if c.until > state.now]
 
 
+def in_smoke_at(state: GameState, x: float, y: float) -> bool:
+    return any(math.hypot(x - c.x, y - c.y) < c.r for c in state.level.smokes)
+
+
 def in_smoke(state: GameState) -> bool:
-    player = state.player
-    return any(math.hypot(player.x - c.x, player.y - c.y) < c.r for c in state.level.smokes)
+    return in_smoke_at(state, state.player.x, state.player.y)

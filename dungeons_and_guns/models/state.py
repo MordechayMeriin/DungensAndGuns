@@ -277,6 +277,14 @@ class Mission(_Model):
     points: int
 
 
+class Weather(_Model):
+    """ערפל שבא והולך (הזמנים לפי שעון המשחק)."""
+
+    fog_start: int = 0
+    fog_until: int = 0          # 0 = אין ערפל עכשיו
+    next_fog_at: int = 0        # מתי יורד הערפל הבא (0 = עוד לא נקבע)
+
+
 class WheelSpin(_Model):
     angle: float
     speed: float
@@ -297,6 +305,7 @@ class GameState(_Model):
     game_over: bool = False
     wheel: WheelSpin | None = None
     mission: Mission | None = None
+    weather: Weather = Field(default_factory=Weather)
     inspect_uid: int | None = None      # על איזה אויב לחצו כדי לראות את הנשק שלו
     inspect_until: int = 0
 

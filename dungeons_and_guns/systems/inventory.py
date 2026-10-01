@@ -15,8 +15,22 @@ def current_weapon(state: GameState) -> Weapon | None:
     return CATALOG.weapon(item.id)
 
 
+def gear_items(ids) -> list[Gear]:
+    """פריטי הציוד לפי ה-id שלהם (של השחקן או של אויב)."""
+    return [g for g in CATALOG.gear if g.id in ids]
+
+
 def owned_gear(inv: Inventory) -> list[Gear]:
-    return [g for g in CATALOG.gear if g.id in inv.gear]
+    return gear_items(inv.gear)
+
+
+def reduce_multiplier(gear: list[Gear]) -> float:
+    """כמה נזק באמת נכנס אחרי המגן, השכפ"ץ והקסדה."""
+    mult = 1.0
+    for item in gear:
+        if item.reduce:
+            mult *= 1.0 - item.reduce
+    return mult
 
 
 def give_weapon(inv: Inventory, weapon: Weapon) -> None:
@@ -86,12 +100,7 @@ def give_random_gear(inv: Inventory) -> Gear | None:
 
 
 def damage_multiplier(inv: Inventory) -> float:
-    """כמה נזק באמת נכנס אחרי המגן, השכפ"ץ והקסדה."""
-    mult = 1.0
-    for item in owned_gear(inv):
-        if item.reduce:
-            mult *= 1.0 - item.reduce
-    return mult
+    return reduce_multiplier(owned_gear(inv))
 
 
 def aim_bonus(inv: Inventory) -> tuple[float, float]:

@@ -9,8 +9,8 @@ from dungeons_and_guns.config import TILE
 from dungeons_and_guns.data import CATALOG
 from dungeons_and_guns.models import (ItemKind, Mission, MissionKind, SlotItem, Tile, WeaponKind,
                                       WheelOutcome)
-from dungeons_and_guns.systems import (combat, crafting, interaction, missions, progression, shop,
-                                       simulation)
+from dungeons_and_guns.systems import (combat, crafting, enemies, interaction, missions,
+                                       progression, shop, simulation, weather)
 from dungeons_and_guns.systems import wheel as wheel_system
 from dungeons_and_guns.systems.shop import ShopKind, ShopRow
 from dungeons_and_guns.world import START_TILE, build_level, make_enemy, path_exists
@@ -209,3 +209,143 @@ def test_exit_mission_done_by_leaving_level(state):
     assert state.inventory.money == money + 200
     assert state.level.number == 2
     assert state.mission is not None and state.mission.progress == 0     # משימה חדשה לשלב 2
+
+
+# ---------- ערפל ----------
+def test_fog_comes_and_goes(state):
+    weather.update(state)                               # קובע מתי הערפל הראשון
+    w = state.weather
+    assert w.next_fog_at > state.now and not weather.foggy(state)
+    state.now = w.next_fog_at
+    weather.update(state)
+    assert weather.foggy(state) and "ערפל" in state.feedback.message
+    assert w.next_fog_at > w.fog_until                  # הערפל הבא רק אחרי שזה נגמר
+    state.now = w.fog_until
+    weather.update(state)
+    assert not weather.foggy(state) and "התפזר" in state.feedback.message
+
+
+def test_fog_fades_in(state):
+    state.weather.fog_start, state.weather.fog_until = state.now, state.now + 60_000
+    assert weather.fog_strength(state) == 0
+    state.now += weather.FADE_MS // 2
+    assert 0 < weather.fog_strength(state) < 1
+    state.now += weather.FADE_MS
+    assert weather.fog_strength(state) == 1
+
+
+def put_enemy(state, distance):
+    enemy = make_enemy(state.level, state.player.x + distance, state.player.y)
+    enemy.weapon = CATALOG.weapon("barrett82")          # טווח ארוך - יורה גם מרחוק
+    state.level.enemies.append(enemy)
+    return enemy
+
+
+def test_enemy_far_away_in_fog_does_not_see_you(state):
+    enemy = put_enemy(state, 250)
+    state.weather.fog_start, state.weather.fog_until = state.now, state.now + 60_000
+    x = enemy.x
+    enemies.update_enemies(state)
+    assert not state.level.bullets and enemy.x == x
+
+
+def test_enemy_close_in_fog_still_shoots(state):
+    put_enemy(state, 80)
+    state.weather.fog_start, state.weather.fog_until = state.now, state.now + 60_000
+    enemies.update_enemies(state)
+    assert state.level.bullets
+
+
+def test_without_fog_far_enemy_shoots(state):
+    put_enemy(state, 250)
+    enemies.update_enemies(state)
+    assert state.level.bullets
+
+
+# ---------- ציוד ורימונים של אויבים ----------
+def test_enemies_get_gear_and_grenades_more_in_later_levels():
+    random.seed(9)
+    early, late = build_level(1), build_level(10)
+
+    def equipped(level):
+        return [make_enemy(level, 50, 50) for _ in range(300)]
+    early_gear = sum(len(e.gear) + len(e.grenades) for e in equipped(early))
+    late_enemies = equipped(late)
+    late_gear = sum(len(e.gear) + len(e.grenades) for e in late_enemies)
+    assert 0 < early_gear < late_gear
+    seen = {g for e in late_enemies for g in e.gear} | {g for e in late_enemies for g in e.grenades}
+    assert {"helmet", "vest", "shield", "laser", "sight", "grenade", "smoke"} <= seen
+
+
+def bare_enemy(state, distance=100, **kw):
+    enemy = make_enemy(state.level, state.player.x + distance, state.player.y)
+    enemy.gear, enemy.grenades = [], {}
+    for key, value in kw.items():
+        setattr(enemy, key, value)
+    state.level.enemies.append(enemy)
+    return enemy
+
+
+def test_enemy_helmet_and_vest_take_less_damage(state):
+    plain = bare_enemy(state)
+    armored = bare_enemy(state, gear=["helmet", "vest"])
+    combat.damage_enemy(state, plain, 10)
+    combat.damage_enemy(state, armored, 10)
+    assert armored.max_hp - armored.hp < plain.max_hp - plain.hp
+
+
+def test_enemy_laser_makes_bullets_more_accurate(state):
+    plain = bare_enemy(state, distance=80)
+    enemies.update_enemies(state)
+    plain_acc = state.level.bullets[-1].acc
+    state.level.enemies.clear()
+    state.level.bullets.clear()
+    bare_enemy(state, distance=80, gear=["laser"])
+    enemies.update_enemies(state)
+    assert state.level.bullets[-1].acc > plain_acc
+
+
+def test_enemy_throws_grenade_that_hurts_only_you(state, monkeypatch):
+    monkeypatch.setattr(enemies.random, "random", lambda: 0.0)
+    open_room(state)                                      # בלי קירות שהרימון יקפוץ מהם
+    thrower = bare_enemy(state, distance=90, grenades={"grenade": 1})
+    friend = bare_enemy(state, distance=30)               # קרוב לפיצוץ - אבל לא נפגע
+    state.player.invuln = 0
+    enemies.update_enemies(state)
+    assert len(state.level.grenades) == 1 and state.level.grenades[0].from_enemy
+    assert thrower.grenades["grenade"] == 0
+    for _ in range(200):                                  # הרימון עף ומתפוצץ
+        state.now += 16
+        combat.update_grenades(state)
+    assert not state.level.grenades
+    assert state.player.hp < state.player.max_hp
+    assert friend.hp == friend.max_hp
+
+
+def test_wounded_enemy_hides_in_smoke(state):
+    enemy = bare_enemy(state, distance=200, grenades={"smoke": 1})
+    enemy.hp = enemy.max_hp * 0.3
+    enemies.update_enemies(state)
+    assert enemy.grenades["smoke"] == 0
+    state.now += 1000
+    combat.update_grenades(state)
+    assert combat.in_smoke_at(state, enemy.x, enemy.y)
+
+
+def test_harder_to_hit_enemy_in_smoke(state, monkeypatch):
+    monkeypatch.setattr(combat.random, "random", lambda: 0.6)   # פוגע רק בדיוק מעל 60%
+    enemy = bare_enemy(state, distance=40)
+    from dungeons_and_guns.models import Bullet, SmokeCloud
+    state.level.smokes.append(SmokeCloud(x=enemy.x, y=enemy.y, r=80, until=state.now + 9000))
+    state.level.bullets.append(Bullet(x=enemy.x - 20, y=enemy.y, dx=1, dy=0, speed=10,
+                                      dmg=(10, 10), acc=0.9, rng=300, from_player=True))
+    combat.update_bullets(state)
+    combat.update_bullets(state)
+    assert enemy.hp == enemy.max_hp                       # 0.9 * 0.5 = 0.45 < 0.6 - החטיא
+
+
+def test_enemy_grenades_are_not_loot(state):
+    enemy = bare_enemy(state, grenades={"grenade": 2, "smoke": 1})
+    combat.damage_enemy(state, enemy, 10_000)
+    assert state.inventory.throwable_count("grenade") == 0
+    assert state.inventory.throwable_count("smoke") == 0

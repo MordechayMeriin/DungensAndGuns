@@ -71,6 +71,14 @@ def _draw_mission(canvas: Canvas, state: GameState) -> None:
     canvas.screen.blit(text, (box.x + 7, box.y + 3))
 
 
+def _label(canvas: Canvas, text: str, pos: tuple[int, int], color) -> None:
+    """טקסט קטן עם רקע כהה - שייקרא גם על ערפל."""
+    surf = canvas.text(canvas.font_small, text, color)
+    box = pygame.Rect(pos[0], pos[1], surf.get_width() + 12, surf.get_height() + 4)
+    pygame.draw.rect(canvas.screen, (24, 24, 30), box, border_radius=5)
+    canvas.screen.blit(surf, (box.x + 6, box.y + 2))
+
+
 def _draw_box(canvas: Canvas, text: pygame.Surface, y: int, border=None) -> None:
     box = pygame.Rect(SCREEN_W // 2 - text.get_width() // 2 - 12, y, text.get_width() + 24, 30)
     pygame.draw.rect(canvas.screen, (44, 44, 52), box, border_radius=6)
@@ -85,8 +93,7 @@ def draw_hud(canvas: Canvas, state: GameState) -> None:
 
     rects = game_hotbar_rects()
     draw_hotbar(canvas, state, rects)
-    bag = canvas.text(canvas.font_small, "E = תיק", (150, 150, 160))
-    canvas.screen.blit(bag, (rects[-1].right + 14, HOTBAR_Y + SLOT // 2 - bag.get_height() // 2))
+    _label(canvas, "E = תיק", (rects[-1].right + 12, HOTBAR_Y + SLOT // 2 - 11), (170, 170, 180))
 
     item = state.inventory.selected_item
     if item is not None:
@@ -94,8 +101,8 @@ def draw_hud(canvas: Canvas, state: GameState) -> None:
         weapon = current_weapon(state)
         if weapon is not None and weapon.ammo == CATALOG.poison.ammo and state.inventory.poison_arrows:
             entry_name += " (חיצים מורעלים: %d)" % state.inventory.poison_arrows
-        canvas.blit_centered_x(canvas.text(canvas.font_small, entry_name, (230, 230, 230)),
-                               HOTBAR_Y - 22)
+        width = canvas.text(canvas.font_small, entry_name, (0, 0, 0)).get_width()
+        _label(canvas, entry_name, (SCREEN_W // 2 - width // 2 - 6, HOTBAR_Y - 26), (230, 230, 230))
 
     hint = interact_hint(state)
     if hint:

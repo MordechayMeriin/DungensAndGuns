@@ -44,6 +44,9 @@ class Enemy(Entity):
     last_shot: int = 0
     poison_until: int = 0       # עד מתי הרעל פועל עליו
     poison_tick: int = 0        # מתי ירדו לו חיים מהרעל בפעם האחרונה
+    gear: list[str] = Field(default_factory=list)           # קסדה, שכפ"ץ, מגן, לייזר, כוונת
+    grenades: dict[str, int] = Field(default_factory=dict)  # רימון יד / רימון עשן -> כמה
+    last_throw: int = 0
 
 
 class Bullet(Entity):
@@ -69,6 +72,7 @@ class Grenade(Entity):
     radius: float
     traveled: float = 0.0
     dead: bool = False
+    from_enemy: bool = False    # רימון שאויב זרק - פוגע רק בשחקן
 
 
 class SmokeCloud(Entity):

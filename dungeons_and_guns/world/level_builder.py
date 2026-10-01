@@ -16,10 +16,25 @@ def tile_center(tx: int, ty: int) -> tuple[float, float]:
     return tx * TILE + TILE / 2, ty * TILE + TILE / 2
 
 
+ENEMY_GEAR = ("helmet", "vest", "shield", "laser", "sight")
+
+
+def equip_chance(number: int) -> float:
+    """הסיכוי של אויב לקבל כל פריט ציוד או רימון - עולה עם השלבים."""
+    return min(0.08 + number * 0.03, 0.45)
+
+
 def make_enemy(level: Level, x: float, y: float) -> Enemy:
     weapon = CATALOG.enemy_weapons[random.randrange(level.max_weapon)]
     hp = 30 + level.number * 6
-    return Enemy(x=x, y=y, weapon=weapon, hp=hp, max_hp=hp)
+    chance = equip_chance(level.number)
+    gear = [g for g in ENEMY_GEAR if random.random() < chance]
+    grenades = {}
+    if random.random() < chance:
+        grenades["grenade"] = random.randint(1, 2)
+    if random.random() < chance * 0.7:
+        grenades["smoke"] = 1
+    return Enemy(x=x, y=y, weapon=weapon, hp=hp, max_hp=hp, gear=gear, grenades=grenades)
 
 
 def build_level(number: int) -> Level:

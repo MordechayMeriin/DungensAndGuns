@@ -8,9 +8,26 @@ import pygame
 from ..config import SCREEN_H, SCREEN_W, TILE
 from ..data import CATALOG
 from ..models import GameState, Tile, WeaponKind
+from ..systems import weather
 from ..systems.inventory import current_weapon
 from . import colors
 from .canvas import Canvas
+
+
+FOG_COLOR = (150, 156, 166)
+FOG_ALPHA = 255
+
+
+def make_fog_surface() -> pygame.Surface:
+    """משטח ערפל גדול פי 2 מהמסך עם "חור" שקוף באמצע, שהולך ומתערפל לאט כלפי חוץ."""
+    fog = pygame.Surface((SCREEN_W * 2, SCREEN_H * 2), pygame.SRCALPHA)
+    fog.fill(FOG_COLOR + (FOG_ALPHA,))
+    center = (SCREEN_W, SCREEN_H)
+    inner, outer = weather.FOG_SIGHT - 40, weather.FOG_SIGHT + 30
+    for r in range(outer, 0, -2):
+        share = max(0.0, min(1.0, (r - inner) / (outer - inner)))
+        pygame.draw.circle(fog, FOG_COLOR + (int(FOG_ALPHA * share),), center, r)
+    return fog
 
 
 def camera_for(state: GameState) -> tuple[float, float]:
@@ -32,6 +49,7 @@ class WorldView:
         self.canvas = canvas
         self.cam_x = 0.0
         self.cam_y = 0.0
+        self._fog_surface: pygame.Surface | None = None
 
     def sx(self, x: float) -> int:
         return int(x - self.cam_x)
@@ -54,6 +72,7 @@ class WorldView:
         self._projectiles(state)
         self._smoke(state)
         self._effects(state)
+        self._fog(state)
 
     # ---------- חלקים ----------
     def _tiles(self, state: GameState) -> None:
@@ -132,8 +151,26 @@ class WorldView:
                                rect.centery - mark.get_height() // 2))
 
     def _enemies(self, state: GameState) -> None:
+        screen, player = self.canvas.screen, state.player
         for e in state.level.enemies:
-            pygame.draw.circle(self.canvas.screen, colors.ENEMY, (self.sx(e.x), self.sy(e.y)), e.r)
+            x, y = self.sx(e.x), self.sy(e.y)
+            d = max(1.0, math.hypot(player.x - e.x, player.y - e.y))
+            if "laser" in e.gear and weather.can_see(state, d):       # קו לייזר אדום אליך
+                reach = min(d, e.weapon.rng)
+                pygame.draw.line(screen, (255, 70, 70), (x, y),
+                                 (self.sx(e.x + (player.x - e.x) / d * reach),
+                                  self.sy(e.y + (player.y - e.y) / d * reach)), 1)
+            pygame.draw.circle(screen, colors.ENEMY, (x, y), e.r)
+            if "vest" in e.gear:
+                pygame.draw.circle(screen, (84, 92, 60), (x, y), e.r - 3, 3)
+            if "helmet" in e.gear:
+                pygame.draw.ellipse(screen, (70, 80, 64), pygame.Rect(x - 8, y - e.r - 2, 16, 10))
+            if "shield" in e.gear:                                    # מגן בצד שפונה אליך
+                sx_, sy_ = x + int((player.x - e.x) / d * (e.r + 3)), y + int((player.y - e.y) / d * (e.r + 3))
+                pygame.draw.circle(screen, (150, 160, 180), (sx_, sy_), 6)
+                pygame.draw.circle(screen, (90, 96, 110), (sx_, sy_), 6, 1)
+            if e.grenades.get("grenade") or e.grenades.get("smoke"):
+                pygame.draw.circle(screen, (72, 92, 62), (x + e.r - 3, y + e.r - 3), 3)
             if e.poison_until > state.now:                     # מורעל - טבעת ירוקה
                 pygame.draw.circle(self.canvas.screen, (120, 230, 90),
                                    (self.sx(e.x), self.sy(e.y)), e.r + 2, 2)
@@ -180,6 +217,18 @@ class WorldView:
         blink = 90 if left < 1000 else 220
         if (state.now // blink) % 2 == 0:
             pygame.draw.circle(screen, (255, 60, 60), (x, y - 9), 3)
+
+    def _fog(self, state: GameState) -> None:
+        """ערפל אפור על כל המסך, חוץ מעיגול קטן מסביב לשחקן."""
+        strength = weather.fog_strength(state)
+        if strength <= 0:
+            return
+        if self._fog_surface is None:
+            self._fog_surface = make_fog_surface()
+        fog = self._fog_surface
+        fog.set_alpha(int(255 * strength))
+        px, py = self.sx(state.player.x), self.sy(state.player.y)
+        self.canvas.screen.blit(fog, (px - fog.get_width() // 2, py - fog.get_height() // 2))
 
     def _smoke(self, state: GameState) -> None:
         for cloud in state.level.smokes:

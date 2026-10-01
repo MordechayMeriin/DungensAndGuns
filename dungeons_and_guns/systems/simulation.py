@@ -4,7 +4,7 @@
 import math
 
 from ..models import GameState, ItemKind, PlayerInput
-from . import combat, enemies, health, interaction, missions, particles
+from . import combat, enemies, health, interaction, missions, particles, weather
 from . import wheel as wheel_system
 from .inventory import move_speed
 
@@ -30,6 +30,7 @@ def step(state: GameState, inp: PlayerInput, window_open: bool = False) -> None:
     combat.update_smokes(state)
     particles.update_sparks(state.level)
     missions.update(state)
+    weather.update(state)
 
 
 def update_player(state: GameState, inp: PlayerInput) -> None:
