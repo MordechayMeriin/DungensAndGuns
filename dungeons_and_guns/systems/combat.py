@@ -95,11 +95,11 @@ def player_shoot(state: GameState) -> None:
 
 
 def swing(state: GameState, w: Weapon) -> None:
-    """מכה בנשק קר - פוגעת בכל אויב קרוב בכיוון שאליו אתה מסתכל."""
+    """מכה בנשק קר - פוגעת בכל אויב קרוב בכיוון שאליו אתה מסתכל, אבל לא דרך קיר."""
     player, level = state.player, state.level
     player.swing_until = state.now + 150
     reach = w.rng
-    player.swing_reach = reach
+    player.swing_reach = level.ray_length(player.x, player.y, *player.dir, reach)
     face = math.atan2(player.dir[1], player.dir[0])
     hit = False
     for e in list(level.enemies):
@@ -108,12 +108,14 @@ def swing(state: GameState, w: Weapon) -> None:
         angle = math.atan2(e.y - player.y, e.x - player.x)
         if abs((angle - face + math.pi) % (2 * math.pi) - math.pi) > MELEE_ARC:
             continue
+        if not level.clear_line(player.x, player.y, e.x, e.y):
+            continue                                    # יש קיר באמצע
         hit = True
         particles.spark(level, e.x, e.y, (255, 240, 170))
         damage_enemy(state, e, random.uniform(*w.dmg))
     if not hit:
-        particles.spark(level, player.x + player.dir[0] * reach,
-                        player.y + player.dir[1] * reach, (140, 140, 150))
+        particles.spark(level, player.x + player.dir[0] * player.swing_reach,
+                        player.y + player.dir[1] * player.swing_reach, (140, 140, 150))
 
 
 def throw_grenade(state: GameState, w: Weapon) -> None:

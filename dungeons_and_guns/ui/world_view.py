@@ -156,7 +156,8 @@ class WorldView:
             x, y = self.sx(e.x), self.sy(e.y)
             d = max(1.0, math.hypot(player.x - e.x, player.y - e.y))
             if "laser" in e.gear and weather.can_see(state, d):       # קו לייזר אדום אליך
-                reach = min(d, e.weapon.rng)
+                reach = state.level.ray_length(e.x, e.y, (player.x - e.x) / d, (player.y - e.y) / d,
+                                               min(d, e.weapon.rng))       # נעצר בקיר
                 pygame.draw.line(screen, (255, 70, 70), (x, y),
                                  (self.sx(e.x + (player.x - e.x) / d * reach),
                                   self.sy(e.y + (player.y - e.y) / d * reach)), 1)
@@ -250,7 +251,7 @@ class WorldView:
 
         weapon = current_weapon(state)
         if "laser" in state.inventory.gear and weapon is not None and not state.game_over:
-            reach = min(weapon.rng, 260)
+            reach = state.level.ray_length(player.x, player.y, *player.dir, min(weapon.rng, 260))
             pygame.draw.line(screen, (255, 80, 80), (sx(player.x), sy(player.y)),
                              (sx(player.x + player.dir[0] * reach), sy(player.y + player.dir[1] * reach)), 1)
 

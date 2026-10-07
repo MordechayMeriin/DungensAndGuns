@@ -351,3 +351,32 @@ def test_enemy_grenades_are_loot_only_sometimes(state, monkeypatch, roll, looted
     combat.damage_enemy(state, enemy, 10_000)
     assert state.inventory.throwable_count("grenade") == (2 if looted else 0)
     assert state.inventory.throwable_count("smoke") == (1 if looted else 0)
+
+
+# ---------- קירות עוצרים חרב ולייזר ----------
+def test_sword_does_not_hit_through_wall(state):
+    open_room(state)
+    level = state.level
+    from dungeons_and_guns.systems.inventory import give_weapon
+    give_weapon(state.inventory, CATALOG.weapon("sword"))
+    state.inventory.select_slot(state.inventory.hotbar_index(SlotItem(kind=ItemKind.WEAPON, id="sword")))
+    state.player.dir = (1.0, 0.0)
+    behind_wall = bare_enemy(state, distance=40)
+    level.grid[2][3] = Tile.WALL                        # קיר בין השחקן (2,2) לאויב
+    simulation.use_selected(state)
+    assert behind_wall.hp == behind_wall.max_hp
+    level.grid[2][3] = Tile.FLOOR                       # בלי הקיר - פוגע
+    state.now += 5000
+    simulation.use_selected(state)
+    assert behind_wall.hp < behind_wall.max_hp
+
+
+def test_ray_stops_at_wall(state):
+    open_room(state)
+    level = state.level
+    x, y = state.player.x, state.player.y               # באמצע משבצת (2,2)
+    assert level.ray_length(x, y, 1, 0, 500) < 3 * TILE + TILE      # נעצר בקיר של החדר
+    level.grid[2][3] = Tile.ARMORED
+    assert level.ray_length(x, y, 1, 0, 500) < TILE
+    assert not level.clear_line(x, y, x + 2 * TILE, y)
+    assert level.clear_line(x, y, x, y + TILE)

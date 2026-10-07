@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """מצב המשחק: השחקן, מה שיש לו, השלב הנוכחי, והודעות/קולות שמחכים להשמעה."""
 
+import math
 from typing import Annotated, Any
 
 from pydantic import (BaseModel, BeforeValidator, ConfigDict, Field, field_validator,
@@ -232,6 +233,24 @@ class Level(_Model):
     def can_move(self, x: float, y: float, r: float, boat: bool = False) -> bool:
         return not (self.blocked(x - r, y - r, boat) or self.blocked(x + r, y - r, boat) or
                     self.blocked(x - r, y + r, boat) or self.blocked(x + r, y + r, boat))
+
+    def ray_length(self, x: float, y: float, dx: float, dy: float, max_dist: float,
+                   step: float = 3.0) -> float:
+        """כמה רחוק מגיע קו ישר מ-(x, y) בכיוון (dx, dy) עד שהוא נעצר בקיר (או ב-max_dist)."""
+        d = 0.0
+        while d < max_dist:
+            nd = min(d + step, max_dist)
+            if self.is_wall(x + dx * nd, y + dy * nd):
+                return d
+            d = nd
+        return max_dist
+
+    def clear_line(self, x1: float, y1: float, x2: float, y2: float) -> bool:
+        """האם אין קיר בין שתי הנקודות."""
+        dist = math.hypot(x2 - x1, y2 - y1)
+        if dist == 0:
+            return True
+        return self.ray_length(x1, y1, (x2 - x1) / dist, (y2 - y1) / dist, dist) >= dist
 
     def enemy_by_uid(self, uid: int | None) -> Enemy | None:
         return next((e for e in self.enemies if e.uid == uid), None)
