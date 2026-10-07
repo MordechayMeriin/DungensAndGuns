@@ -344,8 +344,10 @@ def test_harder_to_hit_enemy_in_smoke(state, monkeypatch):
     assert enemy.hp == enemy.max_hp                       # 0.9 * 0.5 = 0.45 < 0.6 - החטיא
 
 
-def test_enemy_grenades_are_not_loot(state):
+@pytest.mark.parametrize("roll, looted", [(0.3, True), (0.6, False)])
+def test_enemy_grenades_are_loot_only_sometimes(state, monkeypatch, roll, looted):
+    monkeypatch.setattr(combat.random, "random", lambda: roll)
     enemy = bare_enemy(state, grenades={"grenade": 2, "smoke": 1})
     combat.damage_enemy(state, enemy, 10_000)
-    assert state.inventory.throwable_count("grenade") == 0
-    assert state.inventory.throwable_count("smoke") == 0
+    assert state.inventory.throwable_count("grenade") == (2 if looted else 0)
+    assert state.inventory.throwable_count("smoke") == (1 if looted else 0)

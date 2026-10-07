@@ -13,6 +13,7 @@ from .inventory import aim_bonus, current_weapon, gear_items, reduce_multiplier
 
 GRENADE_FUSE_MS = 900
 ENEMY_GRENADE_FUSE_MS = 1500    # רימון של אויב - יש קצת יותר זמן לברוח
+LOOT_CHANCE = 0.45              # הסיכוי לקחת מאויב שחוסל את התחמושת / הרימונים שלו
 SMOKE_MISS = 0.5                # יורים על אויב בתוך עשן - חצי דיוק
 CHARGE_FUSE_MS = 3000           # לבנת חבלה: 3 שניות לברוח
 SMOKE_DURATION_MS = 7000
@@ -193,7 +194,7 @@ def kill_enemy(state: GameState, e: Enemy, low: int, high: int, headline: str,
     gain = random.randint(low, high)
     state.inventory.money += gain
     points, promoted = ranks.award_kill(state, e.weapon)
-    extra = loot_ammo(state, e) if loot else ""
+    extra = loot_ammo(state, e) + loot_grenades(state, e) if loot else ""
     state.say("%s! +%d כסף +%d נקודות%s" % (headline, gain, points, extra))
     if promoted:
         ranks.announce_promotion(state, promoted)
@@ -203,11 +204,23 @@ def kill_enemy(state: GameState, e: Enemy, low: int, high: int, headline: str,
 def loot_ammo(state: GameState, enemy: Enemy) -> str:
     """בסיכוי מסוים לוקחים מהאויב את התחמושת שהייתה לו."""
     ammo = CATALOG.ammo_for(enemy.weapon)
-    if not ammo or random.random() > 0.45:
+    if not ammo or random.random() > LOOT_CHANCE:
         return ""
     count = max(2, ammo.pack // 4)
     state.inventory.add_ammo(ammo.id, count)
     return " ולקחת %d %s" % (count, ammo.name)
+
+
+def loot_grenades(state: GameState, enemy: Enemy) -> str:
+    """כמו בתחמושת: רק לפעמים לוקחים מהאויב את הרימונים שנשארו לו."""
+    if not any(enemy.grenades.values()) or random.random() > LOOT_CHANCE:
+        return ""
+    taken = []
+    for wid, count in enemy.grenades.items():
+        if count > 0:
+            state.inventory.add_throwable(wid, count)
+            taken.append("%d %s" % (count, CATALOG.weapon(wid).name))
+    return " ולקחת %s" % " ו-".join(taken)
 
 
 # ---------- עדכון בכל פריים ----------
