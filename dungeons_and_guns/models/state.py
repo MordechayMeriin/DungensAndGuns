@@ -60,6 +60,7 @@ class Player(_Model):
     last_potion: int = 0
     last_meal: int = 0
     swing_until: int = 0
+    stuck_until: int = 0        # עד מתי השחקן תקוע במלכודת
     swing_reach: float = 40
 
     @property
@@ -199,6 +200,8 @@ class Level(_Model):
     grid: list[list[Tile]]
     exit_tile: Point
     max_weapon: int                     # עד איזה נשק (ברשימה הממוינת) האויבים מקבלים
+    trap: Point | None = None           # מלכודת נסתרת (לא רואים אותה עד שנופלים בה)
+    sprung_trap: Point | None = None    # מלכודת שכבר נפלו בה - עכשיו רואים אותה
     enemies: list[Enemy] = Field(default_factory=list)
     resources: list[Resource] = Field(default_factory=list)
     crates: list[Crate] = Field(default_factory=list)

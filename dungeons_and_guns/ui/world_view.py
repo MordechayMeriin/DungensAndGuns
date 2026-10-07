@@ -65,6 +65,7 @@ class WorldView:
         self.canvas.screen.fill((20, 20, 24))
         self._tiles(state)
         self._exit(state)
+        self._trap(state)
         self._resources(state)
         self._crates(state)
         self._enemies(state)
@@ -112,6 +113,19 @@ class WorldView:
                                              (rect.x + 4, rect.y + 25)])
                 else:
                     pygame.draw.rect(screen, colors.FLOOR_A if (gx + gy) % 2 == 0 else colors.FLOOR_B, rect)
+
+    def _trap(self, state: GameState) -> None:
+        """מלכודת רואים רק אחרי שנפלו בה: מלתעות ברזל על הרצפה."""
+        if state.level.sprung_trap is None:
+            return
+        tx, ty = state.level.sprung_trap
+        cx, cy = self.sx(tx * TILE + TILE / 2), self.sy(ty * TILE + TILE / 2)
+        screen = self.canvas.screen
+        pygame.draw.circle(screen, (90, 90, 98), (cx, cy), 13, 3)
+        for i in range(8):
+            a = i * math.pi / 4
+            pygame.draw.line(screen, (170, 170, 180), (cx + math.cos(a) * 8, cy + math.sin(a) * 8),
+                             (cx + math.cos(a) * 14, cy + math.sin(a) * 14), 2)
 
     def _exit(self, state: GameState) -> None:
         screen = self.canvas.screen

@@ -4,7 +4,7 @@
 import math
 
 from ..models import GameState, ItemKind, PlayerInput
-from . import combat, enemies, health, interaction, missions, particles, weather
+from . import combat, enemies, health, interaction, missions, particles, traps, weather
 from . import wheel as wheel_system
 from .inventory import move_speed
 
@@ -38,6 +38,8 @@ def update_player(state: GameState, inp: PlayerInput) -> None:
     if player.invuln > 0:
         player.invuln -= 1
     dx, dy = inp.dx, inp.dy
+    if state.now < player.stuck_until:
+        dx = dy = 0                         # תקוע במלכודת - אפשר רק לירות
     if dx or dy:
         length = math.hypot(dx, dy)
         dx, dy = dx / length, dy / length
@@ -48,6 +50,7 @@ def update_player(state: GameState, inp: PlayerInput) -> None:
             player.x += dx * speed
         if state.level.can_move(player.x, player.y + dy * speed, player.r, boat):
             player.y += dy * speed
+        traps.check_trap(state)
 
     if inp.shoot:
         use_selected(state)

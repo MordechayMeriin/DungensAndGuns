@@ -7,10 +7,10 @@ import pytest
 
 from dungeons_and_guns.config import TILE
 from dungeons_and_guns.data import CATALOG
-from dungeons_and_guns.models import (ItemKind, Mission, MissionKind, SlotItem, Tile, WeaponKind,
-                                      WheelOutcome)
+from dungeons_and_guns.models import (ItemKind, Mission, MissionKind, PlayerInput, SlotItem, Tile,
+                                      WeaponKind, WheelOutcome)
 from dungeons_and_guns.systems import (combat, crafting, enemies, interaction, missions,
-                                       progression, shop, simulation, weather)
+                                       progression, shop, simulation, traps, weather)
 from dungeons_and_guns.systems import wheel as wheel_system
 from dungeons_and_guns.systems.shop import ShopKind, ShopRow
 from dungeons_and_guns.world import START_TILE, build_level, make_enemy, path_exists
@@ -380,3 +380,52 @@ def test_ray_stops_at_wall(state):
     assert level.ray_length(x, y, 1, 0, 500) < TILE
     assert not level.clear_line(x, y, x + 2 * TILE, y)
     assert level.clear_line(x, y, x, y + TILE)
+
+
+# ---------- מלכודות ----------
+def test_about_one_in_four_levels_has_a_trap():
+    random.seed(5)
+    levels = [build_level(n) for n in range(2, 42)]
+    with_trap = [lv for lv in levels if lv.trap is not None]
+    assert 4 <= len(with_trap) <= 18
+    for lv in with_trap:
+        assert lv.grid[lv.trap[1]][lv.trap[0]] == Tile.FLOOR
+        assert path_exists(lv.grid, START_TILE, lv.exit_tile)
+    random.seed(5)
+    assert all(build_level(1).trap is None for _ in range(20))   # לא בשלב הראשון
+
+
+def step_on_trap(state):
+    open_room(state)
+    state.level.trap = (3, 2)
+    state.player.x = 3 * TILE + 4                       # נכנסים למשבצת של המלכודת
+    traps.check_trap(state)
+
+
+def test_trap_takes_money_and_best_weapon(state):
+    from dungeons_and_guns.systems.inventory import give_weapon
+    for wid in ("m16", "sword"):
+        give_weapon(state.inventory, CATALOG.weapon(wid))
+    state.inventory.money = 300
+    step_on_trap(state)
+    assert state.inventory.money == 300 - 90
+    assert "m16" not in state.inventory.weapons
+    assert all(item is None or item.id != "m16" for item in state.inventory.hotbar)
+    assert "sword" in state.inventory.weapons and "glock19" in state.inventory.weapons
+    assert "נפלת למלכודת" in state.feedback.message and "M16" in state.feedback.message
+
+
+def test_trap_never_takes_your_last_weapon(state):
+    step_on_trap(state)
+    assert state.inventory.weapons == ["glock19"]
+
+
+def test_trap_holds_you_for_a_while_and_works_once(state):
+    step_on_trap(state)
+    x = state.player.x
+    simulation.update_player(state, PlayerInput(dx=-1))
+    assert state.player.x == x                          # תקוע
+    assert state.level.trap is None and state.level.sprung_trap == (3, 2)
+    state.now += traps.TRAP_STUCK_MS + 1
+    simulation.update_player(state, PlayerInput(dx=-1))
+    assert state.player.x < x                           # אפשר לזוז שוב

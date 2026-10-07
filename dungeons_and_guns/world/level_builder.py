@@ -6,10 +6,11 @@ import random
 from ..config import TILE
 from ..data import CATALOG
 from ..models import Crate, CrateKind, Enemy, Level, Resource, Tile
-from .maze import Grid, generate_maze, path_exists, reachable
+from .maze import Grid, generate_maze, path_exists, reachable, shortest_path
 
 START_TILE = (1, 1)
 ARMORED_SHARE = 0.3         # איזה חלק מהקירות הפנימיים משוריין
+TRAP_CHANCE = 0.25          # בערך שלב אחד מתוך 4 (חוץ מהראשון) יש בו מלכודת נסתרת
 
 
 def tile_center(tx: int, ty: int) -> tuple[float, float]:
@@ -74,7 +75,16 @@ def build_level(number: int) -> Level:
     treasure = [(int(o.x // TILE), int(o.y // TILE)) for o in level.crates + level.resources]
     place_gates(level.grid, free, exit_tile, treasure, target=min(1 + number // 2, 4))
     armor_walls(level.grid)
+    if number > 1 and random.random() < TRAP_CHANCE:
+        level.trap = place_trap(level, treasure)
     return level
+
+
+def place_trap(level: Level, occupied: list[tuple[int, int]]) -> tuple[int, int] | None:
+    """המלכודת באמצע הדרך מההתחלה ליציאה - כדי שבאמת ייפלו בה (אבל לא ממש בהתחלה)."""
+    path = shortest_path(level.grid, START_TILE, level.exit_tile)
+    middle = [t for t in path[len(path) * 3 // 10: len(path) * 8 // 10] if t not in occupied]
+    return random.choice(middle) if middle else None
 
 
 def armor_walls(grid: Grid) -> None:
