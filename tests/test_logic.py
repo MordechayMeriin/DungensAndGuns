@@ -40,6 +40,8 @@ def test_catalog_ammo_defaults_follow_category():
     assert CATALOG.weapon("ak47").ammo == "ammo_ak"
     assert CATALOG.weapon("ruger101").ammo == "ammo_revolver"
     assert CATALOG.weapon("bow").ammo == "ammo_arrow"
+    assert CATALOG.weapon("beretta").ammo == "ammo_mini"
+    assert CATALOG.weapon("glock17").ammo == "ammo_pistol"
     assert CATALOG.weapon("slingshot").ammo is None
     assert CATALOG.weapon("dagger").ammo is None
 

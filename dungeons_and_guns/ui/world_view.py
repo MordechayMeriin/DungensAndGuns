@@ -15,19 +15,19 @@ from .canvas import Canvas
 
 
 FOG_COLOR = (150, 156, 166)
-FOG_ALPHA = 255
+FOG_EDGE = 40                   # כמה פיקסלים שפת הערפל מתרככת
 
 
-def make_fog_surface() -> pygame.Surface:
-    """משטח ערפל גדול פי 2 מהמסך עם "חור" שקוף באמצע, שהולך ומתערפל לאט כלפי חוץ."""
-    fog = pygame.Surface((SCREEN_W * 2, SCREEN_H * 2), pygame.SRCALPHA)
-    fog.fill(FOG_COLOR + (FOG_ALPHA,))
+def make_sight_mask() -> pygame.Surface:
+    """מסכה גדולה פי 2 מהמסך: לבנה ואטומה, עם "חור" שקוף באמצע - מה שרואים מסביב לשחקן."""
+    mask = pygame.Surface((SCREEN_W * 2, SCREEN_H * 2), pygame.SRCALPHA)
+    mask.fill((255, 255, 255, 255))
     center = (SCREEN_W, SCREEN_H)
     inner, outer = weather.FOG_SIGHT - 40, weather.FOG_SIGHT + 30
     for r in range(outer, 0, -2):
         share = max(0.0, min(1.0, (r - inner) / (outer - inner)))
-        pygame.draw.circle(fog, FOG_COLOR + (int(FOG_ALPHA * share),), center, r)
-    return fog
+        pygame.draw.circle(mask, (255, 255, 255, int(255 * share)), center, r)
+    return mask
 
 
 def camera_for(state: GameState) -> tuple[float, float]:
@@ -49,7 +49,8 @@ class WorldView:
         self.canvas = canvas
         self.cam_x = 0.0
         self.cam_y = 0.0
-        self._fog_surface: pygame.Surface | None = None
+        self._sight_mask: pygame.Surface | None = None
+        self._fog_layer = pygame.Surface((SCREEN_W, SCREEN_H), pygame.SRCALPHA)
 
     def sx(self, x: float) -> int:
         return int(x - self.cam_x)
@@ -169,7 +170,7 @@ class WorldView:
         for e in state.level.enemies:
             x, y = self.sx(e.x), self.sy(e.y)
             d = max(1.0, math.hypot(player.x - e.x, player.y - e.y))
-            if "laser" in e.gear and weather.can_see(state, d):       # קו לייזר אדום אליך
+            if "laser" in e.gear and weather.can_see(state, e.x, e.y):  # קו לייזר אדום אליך
                 reach = state.level.ray_length(e.x, e.y, (player.x - e.x) / d, (player.y - e.y) / d,
                                                min(d, e.weapon.rng))       # נעצר בקיר
                 pygame.draw.line(screen, (255, 70, 70), (x, y),
@@ -234,16 +235,23 @@ class WorldView:
             pygame.draw.circle(screen, (255, 60, 60), (x, y - 9), 3)
 
     def _fog(self, state: GameState) -> None:
-        """ערפל אפור על כל המסך, חוץ מעיגול קטן מסביב לשחקן."""
+        """ערפל אפור על אזור הערפל, חוץ מעיגול קטן מסביב לשחקן (מה שקרוב תמיד רואים)."""
         strength = weather.fog_strength(state)
         if strength <= 0:
             return
-        if self._fog_surface is None:
-            self._fog_surface = make_fog_surface()
-        fog = self._fog_surface
-        fog.set_alpha(int(255 * strength))
+        if self._sight_mask is None:
+            self._sight_mask = make_sight_mask()
+        w, layer = state.weather, self._fog_layer
+        layer.fill((0, 0, 0, 0))
+        center, radius = (self.sx(w.fog_x), self.sy(w.fog_y)), int(w.fog_r)
+        for r in range(radius + FOG_EDGE, max(0, radius - FOG_EDGE), -4):   # שפה רכה
+            share = min(1.0, (radius + FOG_EDGE - r) / (2 * FOG_EDGE))
+            pygame.draw.circle(layer, FOG_COLOR + (int(255 * share),), center, r)
+        pygame.draw.circle(layer, FOG_COLOR + (255,), center, max(0, radius - FOG_EDGE))
         px, py = self.sx(state.player.x), self.sy(state.player.y)
-        self.canvas.screen.blit(fog, (px - fog.get_width() // 2, py - fog.get_height() // 2))
+        layer.blit(self._sight_mask, (px - SCREEN_W, py - SCREEN_H), special_flags=pygame.BLEND_RGBA_MULT)
+        layer.set_alpha(int(255 * strength))
+        self.canvas.screen.blit(layer, (0, 0))
 
     def _smoke(self, state: GameState) -> None:
         for cloud in state.level.smokes:

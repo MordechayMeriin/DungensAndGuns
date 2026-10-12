@@ -13,6 +13,7 @@ from ..models import ResourceKind as R
 RECIPES = [
     # תחמושת (חפיסה אחת לכל הכנה)
     Recipe(kind=I.AMMO, item="ammo_pistol",   needs={R.COPPER: 1, R.GAS: 1}),
+    Recipe(kind=I.AMMO, item="ammo_mini",     needs={R.COPPER: 1}),
     Recipe(kind=I.AMMO, item="ammo_revolver", needs={R.COPPER: 2, R.GAS: 1}),
     Recipe(kind=I.AMMO, item="ammo_smg",      needs={R.COPPER: 2, R.GAS: 1}),
     Recipe(kind=I.AMMO, item="ammo_rifle",    needs={R.COPPER: 2, R.GAS: 1, R.IRON: 1}),

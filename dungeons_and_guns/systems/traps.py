@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-"""מלכודת נסתרת: מי שדורך עליה נתקע לכמה שניות, ומאבד כסף ואת הנשק הכי טוב שלו."""
+"""מלכודת נסתרת: מי שדורך עליה נתקע לכמה שניות, ומאבד כסף ואחד מהנשקים הכי טובים שלו."""
+
+import random
 
 from ..config import TILE
 from ..data import CATALOG
@@ -8,6 +10,7 @@ from . import particles
 
 TRAP_STUCK_MS = 3000
 TRAP_MONEY_SHARE = 0.3      # כמה מהכסף המלכודת לוקחת
+TRAP_TOP_WEAPONS = 7        # המלכודת לוקחת אחד מ-7 הנשקים הכי טובים (יקרים) שלך
 
 
 def check_trap(state: GameState) -> None:
@@ -29,14 +32,15 @@ def check_trap(state: GameState) -> None:
 
 
 def take_best_weapon(state: GameState) -> str:
-    """לוקח את הנשק הכי יקר - אבל אף פעם לא את הנשק האחרון (רימונים לא נחשבים)."""
+    """לוקח נשק אקראי מתוך 7 הכי יקרים - אבל אף פעם לא את הנשק האחרון (רימונים לא נחשבים)."""
     inv = state.inventory
     guns = [CATALOG.weapon(w) for w in inv.weapons if not CATALOG.weapon(w).is_throwable]
     if len(guns) < 2:
         return ""
-    best = max(guns, key=lambda w: w.price)
-    inv.weapons.remove(best.id)
+    best = sorted(guns, key=lambda w: w.price, reverse=True)[:TRAP_TOP_WEAPONS]
+    taken = random.choice(best)
+    inv.weapons.remove(taken.id)
     for i, item in enumerate(inv.hotbar):
-        if item is not None and item.id == best.id:
+        if item is not None and item.id == taken.id:
             inv.clear_slot(i)
-    return best.name
+    return taken.name

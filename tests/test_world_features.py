@@ -212,6 +212,12 @@ def test_exit_mission_done_by_leaving_level(state):
 
 
 # ---------- ערפל ----------
+def fog_on(state, x, y, r=200):
+    w = state.weather
+    w.fog_start, w.fog_until = state.now - 5000, state.now + 60_000
+    w.fog_x, w.fog_y, w.fog_r = x, y, r
+
+
 def test_fog_comes_and_goes(state):
     weather.update(state)                               # קובע מתי הערפל הראשון
     w = state.weather
@@ -219,14 +225,27 @@ def test_fog_comes_and_goes(state):
     state.now = w.next_fog_at
     weather.update(state)
     assert weather.foggy(state) and "ערפל" in state.feedback.message
-    assert w.next_fog_at > w.fog_until                  # הערפל הבא רק אחרי שזה נגמר
+    assert w.fog_r > 0 and w.next_fog_at > w.fog_until  # הערפל הבא רק אחרי שזה נגמר
     state.now = w.fog_until
     weather.update(state)
     assert not weather.foggy(state) and "התפזר" in state.feedback.message
 
 
+def test_fog_falls_on_an_area_sometimes_not_yours():
+    places = set()
+    for seed in range(30):
+        random.seed(seed)
+        s = progression.new_game()
+        s.now = 10_000
+        weather.start_fog(s)
+        places.add(weather.in_fog(s, s.player.x, s.player.y))
+        assert s.level.grid[int(s.weather.fog_y // TILE)][int(s.weather.fog_x // TILE)] == Tile.FLOOR
+    assert places == {True, False}                     # לפעמים עליך ולפעמים לא
+
+
 def test_fog_fades_in(state):
-    state.weather.fog_start, state.weather.fog_until = state.now, state.now + 60_000
+    fog_on(state, 0, 0)
+    state.weather.fog_start = state.now
     assert weather.fog_strength(state) == 0
     state.now += weather.FADE_MS // 2
     assert 0 < weather.fog_strength(state) < 1
@@ -237,21 +256,37 @@ def test_fog_fades_in(state):
 def put_enemy(state, distance):
     enemy = make_enemy(state.level, state.player.x + distance, state.player.y)
     enemy.weapon = CATALOG.weapon("barrett82")          # טווח ארוך - יורה גם מרחוק
+    enemy.gear, enemy.grenades = [], {}
     state.level.enemies.append(enemy)
     return enemy
 
 
 def test_enemy_far_away_in_fog_does_not_see_you(state):
     enemy = put_enemy(state, 250)
-    state.weather.fog_start, state.weather.fog_until = state.now, state.now + 60_000
+    fog_on(state, state.player.x, state.player.y)       # הערפל עליך
     x = enemy.x
     enemies.update_enemies(state)
     assert not state.level.bullets and enemy.x == x
 
 
+def test_enemy_inside_fog_does_not_see_you_outside(state):
+    enemy = put_enemy(state, 250)
+    fog_on(state, enemy.x, enemy.y, r=100)              # הערפל רק על האויב
+    assert not weather.in_fog(state, state.player.x, state.player.y)
+    enemies.update_enemies(state)
+    assert not state.level.bullets
+
+
+def test_fog_somewhere_else_changes_nothing(state):
+    put_enemy(state, 250)
+    fog_on(state, state.player.x + 2000, state.player.y + 2000, r=100)
+    enemies.update_enemies(state)
+    assert state.level.bullets
+
+
 def test_enemy_close_in_fog_still_shoots(state):
     put_enemy(state, 80)
-    state.weather.fog_start, state.weather.fog_until = state.now, state.now + 60_000
+    fog_on(state, state.player.x, state.player.y)
     enemies.update_enemies(state)
     assert state.level.bullets
 
@@ -402,17 +437,35 @@ def step_on_trap(state):
     traps.check_trap(state)
 
 
-def test_trap_takes_money_and_best_weapon(state):
+def test_trap_takes_money_and_one_weapon(state):
     from dungeons_and_guns.systems.inventory import give_weapon
-    for wid in ("m16", "sword"):
-        give_weapon(state.inventory, CATALOG.weapon(wid))
+    give_weapon(state.inventory, CATALOG.weapon("m16"))
     state.inventory.money = 300
     step_on_trap(state)
     assert state.inventory.money == 300 - 90
-    assert "m16" not in state.inventory.weapons
-    assert all(item is None or item.id != "m16" for item in state.inventory.hotbar)
-    assert "sword" in state.inventory.weapons and "glock19" in state.inventory.weapons
-    assert "נפלת למלכודת" in state.feedback.message and "M16" in state.feedback.message
+    assert len(state.inventory.weapons) == 1                    # אחד מהשניים נלקח
+    left = state.inventory.weapons[0]
+    gone = "m16" if left == "glock19" else "glock19"
+    assert all(item is None or item.id != gone for item in state.inventory.hotbar)
+    assert "נפלת למלכודת" in state.feedback.message
+    assert CATALOG.weapon(gone).name in state.feedback.message
+
+
+def test_trap_takes_one_of_your_seven_best_weapons():
+    from dungeons_and_guns.systems.inventory import give_weapon
+    owned = ["glock19", "beretta", "glock26", "cz75", "sword", "uzi", "mp5", "shotgun", "m16",
+             "ak47", "dragunov", "mag"]
+    by_price = sorted(owned, key=lambda w: CATALOG.weapon(w).price, reverse=True)
+    taken = set()
+    for seed in range(60):
+        random.seed(seed)
+        s = progression.new_game()
+        for wid in owned[1:]:
+            give_weapon(s.inventory, CATALOG.weapon(wid))
+        traps.take_best_weapon(s)
+        taken |= set(owned) - set(s.inventory.weapons)
+    assert taken <= set(by_price[:7])                          # רק מ-7 הכי טובים
+    assert len(taken) > 3                                      # ולא תמיד אותו אחד
 
 
 def test_trap_never_takes_your_last_weapon(state):

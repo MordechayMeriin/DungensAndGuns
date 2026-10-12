@@ -25,8 +25,8 @@ def update_enemies(state: GameState) -> None:
     hidden = in_smoke(state)
     for e in level.enemies:
         d = max(1.0, math.hypot(player.x - e.x, player.y - e.y))
-        if not weather.can_see(state, d):
-            continue                        # בערפל - לא רואה אותך, אז לא רודף ולא יורה
+        if not weather.can_see(state, e.x, e.y):
+            continue                        # ערפל ביניכם - לא רואה אותך, אז לא רודף ולא יורה
         w = e.weapon
         gear = gear_items(e.gear)
         acc = min(0.99, w.acc + sum(g.acc for g in gear))

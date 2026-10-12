@@ -300,11 +300,14 @@ class Mission(_Model):
 
 
 class Weather(_Model):
-    """ערפל שבא והולך (הזמנים לפי שעון המשחק)."""
+    """ערפל שבא והולך על אזור במבוך (הזמנים לפי שעון המשחק)."""
 
     fog_start: int = 0
     fog_until: int = 0          # 0 = אין ערפל עכשיו
     next_fog_at: int = 0        # מתי יורד הערפל הבא (0 = עוד לא נקבע)
+    fog_x: float = 0.0          # מרכז אזור הערפל
+    fog_y: float = 0.0
+    fog_r: float = 0.0          # הרדיוס שלו
 
 
 class WheelSpin(_Model):

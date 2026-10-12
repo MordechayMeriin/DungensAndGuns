@@ -8,6 +8,7 @@ from ..models import WheelOutcome as W
 # סוגי תחמושת. נשק קר, רוגטקה ושוריקנים לא צורכים תחמושת בכלל.
 AMMO_TYPES = [
     AmmoType(id="ammo_pistol",   name="כדורי אקדח",    pack=40, price=70,  desc="לאקדחים רגילים"),
+    AmmoType(id="ammo_mini",     name="כדורי מיני",    pack=40, price=45,  desc="כדורים קטנים לברטה מיני"),
     AmmoType(id="ammo_revolver", name="כדורי תופי",    pack=24, price=80,
              desc="לאקדחים התופיים (רוגר 101, סמית' אנד ווסון)"),
     AmmoType(id="ammo_smg",      name="כדורי תת מקלע", pack=60, price=100, desc="לעוזי, מק 10, MP5 ו-MP7"),

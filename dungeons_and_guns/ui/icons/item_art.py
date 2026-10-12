@@ -20,6 +20,11 @@ def paint_ammo_pistol(g):
         cartridge(g, 16 + i * 15, -4 + (i % 2) * 6, 11, 5)
 
 
+def paint_ammo_mini(g):
+    for i in range(6):                                                     # כדורים קטנים
+        cartridge(g, 18 + i * 10, -3 + (i % 2) * 5, 7, 3.4)
+
+
 def paint_ammo_revolver(g):
     for i in range(3):
         x, y = 16 + i * 21, -5 + (i % 2) * 7

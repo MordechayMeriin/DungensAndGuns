@@ -13,7 +13,7 @@ from ..models import WeaponKind as K
 WEAPONS = [
     # ----- אקדחים -----
     Weapon(id="ruger101",  name="רוגר 101 תופי",   cat=C.PISTOLS, art="revolver", kind=K.GUN, dmg=(18, 26), acc=0.78, rng=210, cooldown=520, price=180, ammo="ammo_revolver"),
-    Weapon(id="beretta",   name="ברטה מיני",       cat=C.PISTOLS, art="pistol",   kind=K.GUN, dmg=(6, 10),  acc=0.70, rng=150, cooldown=220, price=90),
+    Weapon(id="beretta",   name="ברטה מיני",       cat=C.PISTOLS, art="pistol",   kind=K.GUN, dmg=(6, 10),  acc=0.70, rng=150, cooldown=220, price=90,  ammo="ammo_mini"),
     Weapon(id="cz75",      name="CZ 75 קומפקט",    cat=C.PISTOLS, art="pistol",   kind=K.GUN, dmg=(10, 15), acc=0.78, rng=230, cooldown=250, price=170),
     Weapon(id="czp",       name="CZ P-10",         cat=C.PISTOLS, art="pistol",   kind=K.GUN, dmg=(11, 16), acc=0.79, rng=235, cooldown=240, price=200),
     Weapon(id="glock26",   name="גלוק 26",         cat=C.PISTOLS, art="pistol",   kind=K.GUN, dmg=(8, 13),  acc=0.74, rng=200, cooldown=250, price=130),
