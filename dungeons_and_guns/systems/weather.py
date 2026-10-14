@@ -11,7 +11,7 @@ from ..config import TILE
 from ..models import GameState, Tile
 
 FOG_SIGHT = 120                         # כמה רחוק רואים בערפל (בפיקסלים, כ-4 משבצות)
-FOG_RADIUS = (5 * TILE, 9 * TILE)       # כמה גדול אזור הערפל
+FOG_RADIUS = (5 * TILE, 16 * TILE)      # כמה גדול אזור הערפל (16 משבצות - כמעט כל המבוך)
 FOG_MS = (40_000, 70_000)               # כמה זמן הערפל נשאר
 CLEAR_MS = (90_000, 180_000)            # כמה זמן עובר בין ערפל לערפל
 FADE_MS = 2000                          # הערפל יורד ומתפזר לאט

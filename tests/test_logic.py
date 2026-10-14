@@ -205,6 +205,30 @@ def test_basic_weapons_open_from_start(state, weapon_id):
     assert shop.buy(state, ShopRow(kind=ShopKind.WEAPON, item=CATALOG.weapon(weapon_id)))
 
 
+def test_each_rank_adds_max_hp(state):
+    assert state.player.max_hp == 100
+    state.player.hp = 60
+    ranks.add_points(state, CATALOG.ranks[1].points)        # טוראי -> רב"ט
+    assert state.player.max_hp == 110 and state.player.hp == 70
+    ranks.add_points(state, CATALOG.ranks[3].points)        # קפיצה של כמה דרגות בבת אחת
+    index = CATALOG.ranks.index(ranks.current_rank(state))
+    assert state.player.max_hp == 100 + 10 * index
+
+
+def test_promotion_message_shows_new_max_hp(state):
+    state.player.points = CATALOG.ranks[1].points - 1
+    enemy = make_enemy(state.level, 100, 100)
+    state.level.enemies.append(enemy)
+    combat.damage_enemy(state, enemy, 10_000)
+    assert "110" in state.feedback.message
+
+
+def test_old_save_gets_rank_hp_on_next_level(state):
+    state.player.points = CATALOG.ranks[2].points           # נקודות של סמל, אבל 100 חיים
+    progression.enter_level(state, 2)
+    assert state.player.max_hp == 120
+
+
 def test_shop_shows_locked_weapons(state):
     rows = {r.item.id: r for s in shop.shop_sections(state) for r in s.rows}
     assert rows["uzi"].need_rank.name == 'רב"ט'

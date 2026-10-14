@@ -3,7 +3,7 @@
 
 from ..models import GameState, Inventory, MissionKind, Player
 from ..world import START_TILE, build_level, tile_center
-from . import missions
+from . import missions, ranks
 
 START_WEAPON = "glock19"
 START_AMMO = {"ammo_pistol": 80}          # מלאי התחלתי לגלוק
@@ -26,6 +26,7 @@ def enter_level(state: GameState, number: int) -> None:
     state.level = build_level(number)
     state.inspect_uid = None
     _place_player(state)
+    ranks.sync_max_hp(state)                # משחק שמור ישן - מקבל את החיים של הדרגה שלו
     missions.assign(state)
 
 
