@@ -6,7 +6,7 @@ import random
 
 from ..data import CATALOG
 from ..models import GameState, WheelOutcome, WheelSlice, WheelSpin
-from . import health, ranks
+from . import health, money, ranks
 from .inventory import give_random_gear, give_random_tool, give_weapon
 
 FRICTION = 0.975            # בערך שלוש שניות סיבוב
@@ -55,9 +55,8 @@ def apply(state: GameState, slice_: WheelSlice) -> str:
 
     match slice_.id:
         case WheelOutcome.MONEY:
-            gain = random.randint(150, 250 + state.level.number * 40)
-            inv.money += gain
-            return "זכית ב-%d כסף!" % gain
+            got = money.earn(state, random.randint(150, 250 + state.level.number * 40))
+            return "זכית ב-%s!" % got
         case WheelOutcome.POTION:
             potion = CATALOG.potion(random.choice(["small", "medium", "large", "large"]))
             inv.add_potion(potion.id, 2)
@@ -79,7 +78,7 @@ def apply(state: GameState, slice_: WheelSlice) -> str:
                        and w.id not in inv.weapons and ranks.rank_needed(state, w) is None]
             cats = sorted(set(w.cat for w in missing))
             if not cats:
-                inv.money += 300
+                inv.earn(300)
                 return "יש לך כבר כל נשק שהדרגה שלך מרשה - קיבלת 300 כסף"
             cat = random.choice(cats)
             weapon = random.choice([w for w in missing if w.cat == cat])
@@ -88,13 +87,13 @@ def apply(state: GameState, slice_: WheelSlice) -> str:
         case WheelOutcome.TOOL:
             tool = give_random_tool(inv)
             if tool is None:
-                inv.money += 200
+                inv.earn(200)
                 return "יש לך כבר את כל הכלים - קיבלת 200 כסף"
             return "זכית בכלי: %s!" % tool.name
         case WheelOutcome.GEAR:
             item = give_random_gear(inv)
             if item is None:
-                inv.money += 300
+                inv.earn(300)
                 return "יש לך כבר את כל הציוד - קיבלת 300 כסף"
             return "זכית בציוד: %s!" % item.name
         case WheelOutcome.KEYS:
@@ -110,9 +109,8 @@ def apply(state: GameState, slice_: WheelSlice) -> str:
             health.infect(state)
             return "נדבקת במחלה! צריך תרופה גדולה"
         case WheelOutcome.LOSE_MONEY:
-            loss = min(inv.money, max(50, int(inv.money * random.uniform(0.2, 0.4))))
-            inv.money -= loss
-            return "הפסדת %d כסף" % loss
+            loss = inv.lose(max(50, int(inv.money * random.uniform(0.2, 0.4))))
+            return "הפסדת %d מטבעות" % loss
         case WheelOutcome.LOSE_HP:
             damage = random.randint(15, 30)
             state.play("hurt")

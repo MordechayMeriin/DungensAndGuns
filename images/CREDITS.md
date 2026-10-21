@@ -151,6 +151,22 @@
   - צלם/יוצר: John Torch II
   - רישיון: CC0  http://creativecommons.org/publicdomain/zero/1.0/deed.en
   - מקור: https://commons.wikimedia.org/wiki/File:Uzi-nobg.png
+- **mac10** - File:MAC10.jpg
+  - צלם/יוצר: Mike Cumpston (Mcumpston at English Wikipedia)
+  - רישיון: Public domain
+  - מקור: https://commons.wikimedia.org/wiki/File:MAC10.jpg
+- **deagle** - File:Desert-Eagle-chrome-p1030142.jpg
+  - צלם/יוצר: Rama
+  - רישיון: CC BY-SA 2.0 fr  https://creativecommons.org/licenses/by-sa/2.0/fr/deed.en
+  - מקור: https://commons.wikimedia.org/wiki/File:Desert-Eagle-chrome-p1030142.jpg
+- **winchester** - File:Winchester Model 1911 SL Semiauto Shotgun transparent.png
+  - צלם/יוצר: The Smithsonian Institution
+  - רישיון: Public domain
+  - מקור: https://commons.wikimedia.org/wiki/File:Winchester_Model_1911_SL_Semiauto_Shotgun_transparent.png
+- **negev** - File:IWI-Negev-Zachi-Evenor-01-white.jpg
+  - צלם/יוצר: Zachi Evenor
+  - רישיון: CC BY 2.0  https://creativecommons.org/licenses/by/2.0
+  - מקור: https://commons.wikimedia.org/wiki/File:IWI-Negev-Zachi-Evenor-01-white.jpg
 
 לפריטים שאין להם תצלום חופשי מתאים (מכוש, חכה, לפיד, סירה, תרופות,
 רימונים, ציוד הגנה ועוד) המשחק מצייר את הפריט בעצמו בתוך הקוד.

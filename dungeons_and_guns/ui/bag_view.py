@@ -11,7 +11,8 @@ import pygame
 
 from ..config import SCREEN_H, SCREEN_W
 from ..data import CATALOG
-from ..models import GameState, ItemKind, SlotItem
+from ..models import SMALL_TO_BIG, Coin, GameState, ItemKind, ResourceKind, SlotItem
+from ..systems.money import coin_name
 from . import colors
 from .canvas import Canvas
 from .hud import rank_text
@@ -52,16 +53,33 @@ def bag_groups(state: GameState) -> list[Group]:
             for a in CATALOG.ammo_types if inv.ammo_count(a.id) > 0]
     if inv.poison_arrows:
         ammo.append(Entry("חיצים מורעלים", str(inv.poison_arrows), CATALOG.poison))
+    money = [money_entry(state, coin) for coin in reversed(SMALL_TO_BIG)]
     materials = [Entry(r.material, str(inv.material_count(r.kind)), art="mat_%s" % r.kind)
-                 for r in CATALOG.resources if r.material and inv.material_count(r.kind) > 0]
+                 for r in CATALOG.resources if r.material and inv.material_count(r.kind) > 0
+                 and r.kind not in (ResourceKind.GOLD, ResourceKind.DIAMOND)]   # הם בקבוצת הכסף
     owned = ([Entry(CATALOG.key.name, str(inv.keys), CATALOG.key)] if inv.keys else [])
     if inv.oven_uses:
         owned.append(Entry("%s (בישולים)" % CATALOG.oven.name, str(inv.oven_uses), CATALOG.oven))
     owned += ([Entry(t.name, "", t) for t in CATALOG.tools if t.id in inv.tools]
              + [Entry(g.name, "", g) for g in CATALOG.gear if g.id in inv.gear])
-    groups = [Group("נשק", weapons), Group("תרופות ואוכל", usable), Group("תחמושת", ammo),
-              Group("חומרים", materials), Group("כלים וציוד", owned)]
+    groups = [Group("כסף", money), Group("נשק", weapons), Group("תרופות ואוכל", usable),
+              Group("תחמושת", ammo), Group("חומרים", materials), Group("כלים וציוד", owned)]
     return [g for g in groups if g.entries]
+
+
+COIN_ART = {Coin.COIN: "coin", Coin.DOLLAR: "dollar", Coin.GOLD: "mat_gold",
+            Coin.DIAMOND: "mat_diamond"}
+
+
+def money_entry(state: GameState, coin: Coin) -> Entry:
+    i = SMALL_TO_BIG.index(coin)
+    hints = []
+    if i < len(SMALL_TO_BIG) - 1:
+        hints.append("קליק: להחליף 10 ב%s אחד" % coin_name(SMALL_TO_BIG[i + 1]))
+    if i > 0:
+        hints.append("קליק ימני: לפרוט ל-10 %s" % coin_name(SMALL_TO_BIG[i - 1], 10))
+    return Entry(coin_name(coin, 2), str(state.inventory.coin_count(coin)), art=COIN_ART[coin],
+                 coin=coin, hint=" | ".join(hints))
 
 
 class BagView:
@@ -104,6 +122,10 @@ class BagView:
         if entry is not None and entry.slot_item is not None:
             self.drag = (entry.slot_item, None)
 
+    def coin_at(self, pos: tuple[int, int]) -> Coin | None:
+        entry = self._cell_at(pos)
+        return entry.coin if entry is not None else None
+
     def release(self, pos: tuple[int, int]) -> Drop | None:
         if self.drag is None:
             return None
@@ -119,7 +141,7 @@ class BagView:
         pygame.draw.rect(screen, colors.PANEL_LINE, panel, 2, border_radius=10)
         canvas.blit_centered_x(canvas.text(canvas.font_big, "התיק", (255, 204, 102)),
                                panel.y + 8, panel.centerx)
-        info = "כסף: %d   |   שלב: %d   |   %s" % (
+        info = "כל הכסף שווה %d מטבעות   |   שלב: %d   |   %s" % (
             state.inventory.money, state.level.number, rank_text(state))
         canvas.blit_centered_x(canvas.text(canvas.font_small, info, (200, 200, 200)),
                                panel.y + 52, panel.centerx)
@@ -147,8 +169,8 @@ class BagView:
             icon = canvas.icons.square(entry.item, SLOT - 10, entry.art)
             screen.blit(icon, (mouse[0] - icon.get_width() // 2, mouse[1] - icon.get_height() // 2))
         elif hover is not None:
-            draw_tooltip(canvas, "%s (%s)" % (hover.name, hover.count) if hover.count else hover.name,
-                         mouse)
+            text = "%s (%s)" % (hover.name, hover.count) if hover.count else hover.name
+            draw_tooltip(canvas, "%s - %s" % (text, hover.hint) if hover.hint else text, mouse)
 
     def _draw_grid(self, state: GameState, mouse: tuple[int, int]) -> Entry | None:
         """כל קבוצה בשורה משלה: השם מימין והריבועים משמאלו. מחזיר על מה העכבר עומד."""

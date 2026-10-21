@@ -7,6 +7,7 @@ from ..config import SCREEN_H, SCREEN_W
 from ..data import CATALOG
 from ..models import GameState, ItemKind, WeaponKind
 from ..systems import crafting
+from ..systems.money import wallet_text
 from ..systems.shop import ShopKind, ShopRow, shop_sections
 from . import colors
 from .canvas import Canvas
@@ -102,8 +103,8 @@ class ShopView:
         canvas.blit_centered_x(canvas.text(canvas.font_big, "החנות", (255, 204, 102)),
                                panel.y + 10, panel.centerx)
         canvas.blit_centered_x(canvas.text(
-            canvas.font_small, "כסף: %d   |   גלגלת עכבר או חצים לגלילה   |   Y לסגירה" % money,
-            (180, 180, 180)), panel.y + 54, panel.centerx)
+            canvas.font_small, "%s   (שווה %d מטבעות - המחירים במטבעות)   |   Y לסגירה"
+            % (wallet_text(state), money), (180, 180, 180)), panel.y + 54, panel.centerx)
 
         self.buttons = []
         y = panel.y + 84 - self.scroll
@@ -149,7 +150,7 @@ class ShopView:
         elif state.inventory.money >= item.price:
             color, label = (58, 125, 58), "קנה %d" % item.price
         else:
-            color, label = (90, 60, 60), "%d כסף" % item.price
+            color, label = (90, 60, 60), "%d מטבעות" % item.price
         pygame.draw.rect(screen, color, btn, border_radius=5)
         btext = canvas.text(canvas.font_small, label, (255, 255, 255))
         screen.blit(btext, (btn.centerx - btext.get_width() // 2, btn.y + 3))

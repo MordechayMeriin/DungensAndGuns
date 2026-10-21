@@ -7,7 +7,7 @@ import pygame
 
 from ..config import SCREEN_W
 from ..data import CATALOG
-from ..models import HOTBAR_SIZE, GameState, ItemBase, ItemKind, SlotItem
+from ..models import HOTBAR_SIZE, Coin, GameState, ItemBase, ItemKind, SlotItem
 from .canvas import Canvas
 
 SLOT = 50           # גודל ריבוע
@@ -23,6 +23,8 @@ class Entry(NamedTuple):
     item: ItemBase | None = None        # התמונה - לפי פריט מהקטלוג...
     art: str = ""                       # ...או לפי שם של ציור (חומרים)
     slot_item: SlotItem | None = None   # מה נכנס לשורת המספרים כשגוררים (None = אי אפשר)
+    coin: Coin | None = None            # ריבוע של כסף - קליק מחליף בין הסוגים
+    hint: str = ""                      # הסבר קצר שמופיע כשהעכבר על הריבוע
 
 
 def slot_entry(state: GameState, item: SlotItem) -> Entry:

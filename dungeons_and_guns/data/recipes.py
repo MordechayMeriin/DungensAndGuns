@@ -26,7 +26,7 @@ RECIPES = [
     Recipe(kind=I.GEAR, item="helmet",        needs={R.IRON: 2}),
     Recipe(kind=I.GEAR, item="shield",        needs={R.TREE: 2, R.IRON: 2}),
     Recipe(kind=I.GEAR, item="vest",          needs={R.IRON: 3, R.SHEEP: 2}),
-    Recipe(kind=I.GEAR, item="sight",         needs={R.COPPER: 2, R.DIAMOND: 1}),
+    Recipe(kind=I.GEAR, item="sight",         needs={R.COPPER: 2, R.GOLD: 2}),
     Recipe(kind=I.GEAR, item="launcher",      needs={R.VOLCANO: 2, R.IRON: 2}),
     # מפתח לשערים
     Recipe(kind=I.KEY,  item="key",           needs={R.IRON: 1}),

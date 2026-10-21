@@ -8,7 +8,7 @@ from ..config import TILE
 from ..data import CATALOG
 from ..models import Crate, GameState, MissionKind, Resource, ResourceKind, Tile
 from ..world import make_enemy
-from . import health, missions
+from . import health, missions, money
 from .crates import open_crate
 from .progression import leave_level
 
@@ -101,11 +101,10 @@ def harvest(state: GameState, res: Resource) -> None:
         return
 
     gain = random.randint(*info.value)
-    inv.money += gain
-    got = ""
-    if info.material:
+    got = " +%s" % money.earn(state, gain) if gain else ""
+    if info.material:                       # מטיל זהב ויהלום הם גם כסף
         inv.add_material(res.kind)
-        got = " וגם %s" % info.material
+        got += (" וגם %s" if got else " קיבלת %s") % info.material
     state.play("pickup")
 
     if res.kind == ResourceKind.CAVE:
@@ -113,21 +112,21 @@ def harvest(state: GameState, res: Resource) -> None:
         if random.random() < 0.4:
             inv.add_potion(random.choice(["small", "medium", "large"]))
             extra = " ומצאת תרופה"
-        state.say("חקרת את המערה! +%d כסף%s" % (gain, extra))
+        state.say("חקרת את המערה!%s%s" % (got, extra))
         if random.random() < 0.35:
             level.enemies.append(make_enemy(level, res.x, res.y))
             state.say("יצא אויב מהמערה! היזהר")
     elif res.kind == ResourceKind.VOLCANO:
         if random.random() < 0.3:
             health.drain(state, 10)
-            state.say("כרית בהר הגעש! +%d כסף%s אבל נכווית (-10 חיים)" % (gain, got))
+            state.say("כרית בהר הגעש!%s אבל נכווית (-10 חיים)" % got)
         else:
-            state.say("כרית בהר הגעש! +%d כסף%s" % (gain, got))
+            state.say("כרית בהר הגעש!%s" % got)
     elif res.kind == ResourceKind.COW and not state.player.sick and random.random() < COW_SICK_CHANCE:
         health.infect(state)
         state.say("נדבקת ממחלה מהפרה! רק תרופה גדולה תרפא אותך")
     else:
-        state.say("אספת %s! +%d כסף%s" % (info.name, gain, got))
+        state.say("אספת %s!%s" % (info.name, got))
 
     if info.renew:
         res.ready_at = state.now + info.renew
@@ -160,11 +159,13 @@ def go_fishing(state: GameState, tile: tuple[int, int]) -> None:
         state.say("אין כאן דגים כרגע - חכה קצת")
         return
     state.play("splash")
-    gain = random.randint(9, 16)
-    state.inventory.money += gain
+    catches = level.fish_catches.get(tile, 0)
+    gain = random.randint(9, 16) // 2 ** catches        # כל פעם באותו מקום - חצי מהכסף
+    level.fish_catches[tile] = catches + 1
+    got = "+%s וגם " % money.earn(state, gain) if gain else ""
     state.inventory.add_food("raw_fish")
     level.fish_cooldown[tile] = state.now + FISH_COOLDOWN_MS
-    state.say("דגת דג! +%d כסף וגם דג נא (כדאי לבשל בתנור)" % gain)
+    state.say("דגת דג! %sדג נא (כדאי לבשל בתנור)" % got)
 
 
 def interact_hint(state: GameState) -> str:

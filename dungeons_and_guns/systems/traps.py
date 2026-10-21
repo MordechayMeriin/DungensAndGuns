@@ -20,15 +20,14 @@ def check_trap(state: GameState) -> None:
     level.sprung_trap, level.trap = level.trap, None       # כל מלכודת עובדת פעם אחת
     player.stuck_until = state.now + TRAP_STUCK_MS
     inv = state.inventory
-    lost = int(inv.money * TRAP_MONEY_SHARE)
-    inv.money -= lost
+    lost = inv.lose(int(inv.money * TRAP_MONEY_SHARE))
     weapon = take_best_weapon(state)
     state.play("crate_bad")
     particles.burst(level, player.x, player.y, 16, 3, 24, ((150, 150, 160), (200, 60, 60)))
     lost_weapon = ""
     if weapon:                                      # "את ה-M16" אבל "את החרב"
         lost_weapon = " ואת ה%s%s" % ("-" if weapon[0].isascii() else "", weapon)
-    state.say("נפלת למלכודת! איבדת %d כסף%s" % (lost, lost_weapon))
+    state.say("נפלת למלכודת! איבדת %d מטבעות%s" % (lost, lost_weapon))
 
 
 def take_best_weapon(state: GameState) -> str:

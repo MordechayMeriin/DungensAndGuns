@@ -24,9 +24,11 @@ WEAPONS = [
     Weapon(id="smith",     name="סמית' אנד ווסון", cat=C.PISTOLS, art="revolver", kind=K.GUN, dmg=(16, 24), acc=0.76, rng=215, cooldown=480, price=260, ammo="ammo_revolver"),
     Weapon(id="masada",    name="מצדה",            cat=C.PISTOLS, art="pistol",   kind=K.GUN, dmg=(12, 17), acc=0.82, rng=250, cooldown=235, price=290),
     Weapon(id="jericho",   name="יריחו",           cat=C.PISTOLS, art="pistol",   kind=K.GUN, dmg=(12, 18), acc=0.80, rng=245, cooldown=240, price=270),
+    Weapon(id="deagle",    name="נשר המדבר",       cat=C.PISTOLS, art="pistol",   kind=K.GUN, dmg=(22, 32), acc=0.74, rng=240, cooldown=480, price=420),
 
     # ----- רובי צייד -----
     Weapon(id="shotgun",   name="שוטגן",           cat=C.SHOTGUNS, art="shotgun", kind=K.GUN, dmg=(7, 12), acc=0.55, rng=150, cooldown=780, price=600, pellets=6),
+    Weapon(id="winchester", name="וינצ'סטר",       cat=C.SHOTGUNS, art="shotgun", kind=K.GUN, dmg=(8, 13), acc=0.60, rng=175, cooldown=850, price=750, pellets=6),
 
     # ----- תתי מקלע -----
     Weapon(id="uzi",       name="עוזי",            cat=C.SMGS, art="smg", kind=K.GUN, dmg=(5, 9),  acc=0.58, rng=170, cooldown=90,  price=450),
@@ -62,6 +64,7 @@ WEAPONS = [
 
     # ----- מקלעים כבדים -----
     Weapon(id="mag",       name="מאג",             cat=C.HEAVY, art="mg",       kind=K.GUN, dmg=(18, 26), acc=0.55, rng=380, cooldown=120, price=1900),
+    Weapon(id="negev",     name="נגב",             cat=C.HEAVY, art="mg",       kind=K.GUN, dmg=(13, 19), acc=0.62, rng=340, cooldown=75,  price=2000),
     Weapon(id="minigun",   name="מיניגן",          cat=C.HEAVY, art="minigun",  kind=K.GUN, dmg=(12, 18), acc=0.42, rng=320, cooldown=45,  price=3200),
     Weapon(id="browning",  name="בראונינג",        cat=C.HEAVY, art="mg_heavy", kind=K.GUN, dmg=(24, 34), acc=0.48, rng=400, cooldown=140, price=2400),
     Weapon(id="barrett_mg", name="בארט כבד",        cat=C.HEAVY, art="mg_heavy", kind=K.GUN, dmg=(30, 42), acc=0.50, rng=420, cooldown=200, price=2800),

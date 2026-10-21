@@ -10,7 +10,7 @@ from pydantic import (BaseModel, BeforeValidator, ConfigDict, Field, field_valid
 from ..config import TILE
 from .catalog import WheelSlice
 from .entities import Bullet, Crate, Enemy, Grenade, Resource, SmokeCloud, Spark
-from .enums import ItemKind, MissionKind, ResourceKind, Tile
+from .enums import COIN_VALUES, Coin, ItemKind, MissionKind, ResourceKind, Tile
 
 HOTBAR_SIZE = 10        # שורת המספרים: מקשים 1-9 ו-0
 HOTBAR_KINDS = (ItemKind.WEAPON, ItemKind.POTION, ItemKind.FOOD)
@@ -84,8 +84,22 @@ class SlotItem(_Model):
         return kind
 
 
+# מטילי זהב ויהלומים הם גם כסף וגם חומרים לסדנה - הם נשמרים עם החומרים
+COIN_MATERIALS = {Coin.GOLD: ResourceKind.GOLD, Coin.DIAMOND: ResourceKind.DIAMOND}
+SMALL_TO_BIG = [Coin.COIN, Coin.DOLLAR, Coin.GOLD, Coin.DIAMOND]
+
+
+def split_money(amount: int) -> dict[Coin, int]:
+    """סכום (במטבעות) -> כמה מכל סוג, עם הכי מעט פריטים (1234 = יהלום, 2 זהב, 3 דולר, 4 מטבעות)."""
+    parts = {}
+    for coin in reversed(SMALL_TO_BIG):
+        parts[coin], amount = divmod(amount, COIN_VALUES[coin])
+    return parts
+
+
 class Inventory(_Model):
-    money: int = 100
+    coins: int = 0              # מטבעות
+    dollars: int = 0            # דולרים (מטילי זהב ויהלומים נמצאים ב-materials)
     weapons: list[str] = Field(default_factory=list)       # כל הנשקים שיש (גם רימונים)
     hotbar: list[SlotItem | None] = Field(default_factory=lambda: [None] * HOTBAR_SIZE)
     selected: int = Field(0, ge=0, lt=HOTBAR_SIZE)          # איזו משבצת בשורה נבחרה
@@ -99,6 +113,24 @@ class Inventory(_Model):
     poison_arrows: int = 0                                      # כמה מהחיצים הבאים מורעלים
     food: dict[str, int] = Field(default_factory=dict)          # אוכל מהסדנה -> כמה מנות
     materials: dict[ResourceKind, int] = Field(default_factory=dict)  # משאב -> כמה פריטים נאספו
+
+    @model_validator(mode="before")
+    @classmethod
+    def _old_money(cls, data: Any) -> Any:
+        """שמירה מלפני 4 סוגי הכסף: הכסף הישן הופך למטבעות, דולרים, מטילי זהב ויהלומים."""
+        if not isinstance(data, dict) or "money" not in data:
+            return data
+        data = dict(data)
+        parts = split_money(data.pop("money"))
+        data["coins"] = data.get("coins", 0) + parts[Coin.COIN]
+        data["dollars"] = data.get("dollars", 0) + parts[Coin.DOLLAR]
+        materials = dict(data.get("materials", {}))
+        for coin, kind in COIN_MATERIALS.items():
+            if parts[coin]:
+                key = kind.value if any(isinstance(k, str) for k in materials) else kind
+                materials[key] = materials.get(key, 0) + parts[coin]
+        data["materials"] = materials
+        return data
 
     @model_validator(mode="before")
     @classmethod
@@ -121,6 +153,85 @@ class Inventory(_Model):
         if len(hotbar) != HOTBAR_SIZE:
             raise ValueError("the hotbar has exactly %d slots" % HOTBAR_SIZE)
         return hotbar
+
+    # ---------- כסף ----------
+    def coin_count(self, coin: Coin) -> int:
+        if coin == Coin.COIN:
+            return self.coins
+        if coin == Coin.DOLLAR:
+            return self.dollars
+        return self.material_count(COIN_MATERIALS[coin])
+
+    def _add_coins(self, coin: Coin, count: int) -> None:
+        if coin == Coin.COIN:
+            self.coins += count
+        elif coin == Coin.DOLLAR:
+            self.dollars += count
+        else:
+            kind = COIN_MATERIALS[coin]
+            self.materials[kind] = self.material_count(kind) + count
+            if not self.materials[kind]:
+                del self.materials[kind]
+
+    @property
+    def money(self) -> int:
+        """כמה כל הכסף שווה, במטבעות."""
+        return sum(self.coin_count(c) * COIN_VALUES[c] for c in SMALL_TO_BIG)
+
+    @money.setter
+    def money(self, amount: int) -> None:
+        """קובע סכום (במטבעות) - הכסף מסודר מחדש בהכי מעט פריטים."""
+        for coin in SMALL_TO_BIG:
+            self._add_coins(coin, -self.coin_count(coin))
+        self.earn(amount)
+
+    def earn(self, amount: int) -> dict[Coin, int]:
+        """מקבלים כסף - בהכי מעט פריטים (37 = 3 דולר ו-7 מטבעות). מחזיר מה התקבל."""
+        parts = split_money(max(0, amount))
+        for coin, count in parts.items():
+            if count:
+                self._add_coins(coin, count)
+        return parts
+
+    def pay(self, amount: int) -> tuple[dict[Coin, int], dict[Coin, int]] | None:
+        """משלמים סכום: קודם מהכסף הקטן, ומקבלים עודף. מחזיר (מה שולם, העודף), או None אם אין מספיק."""
+        if amount > self.money:
+            return None
+        paid, left = {}, amount
+        for coin in SMALL_TO_BIG:
+            if left <= 0:
+                break
+            value = COIN_VALUES[coin]
+            count = min(self.coin_count(coin), -(-left // value))     # עיגול כלפי מעלה
+            if count:
+                self._add_coins(coin, -count)
+                paid[coin] = count
+                left -= count * value
+        return paid, self.earn(-left)
+
+    def lose(self, amount: int) -> int:
+        """מאבדים כסף (גנב, מלכודת...) - אבל לא יותר ממה שיש. מחזיר כמה באמת אבד."""
+        amount = min(amount, self.money)
+        self.pay(amount)
+        return amount
+
+    def exchange_up(self, coin: Coin) -> bool:
+        """10 מהסוג הזה -> 1 מהסוג הבא (10 מטבעות -> דולר)."""
+        i = SMALL_TO_BIG.index(coin)
+        if i == len(SMALL_TO_BIG) - 1 or self.coin_count(coin) < 10:
+            return False
+        self._add_coins(coin, -10)
+        self._add_coins(SMALL_TO_BIG[i + 1], 1)
+        return True
+
+    def exchange_down(self, coin: Coin) -> bool:
+        """פורטים 1 מהסוג הזה ל-10 מהסוג הקודם (דולר -> 10 מטבעות)."""
+        i = SMALL_TO_BIG.index(coin)
+        if i == 0 or self.coin_count(coin) < 1:
+            return False
+        self._add_coins(coin, -1)
+        self._add_coins(SMALL_TO_BIG[i - 1], 10)
+        return True
 
     def ammo_count(self, ammo_id: str) -> int:
         return self.ammo.get(ammo_id, 0)
@@ -206,6 +317,7 @@ class Level(_Model):
     resources: list[Resource] = Field(default_factory=list)
     crates: list[Crate] = Field(default_factory=list)
     fish_cooldown: dict[PointKey, int] = Field(default_factory=dict)
+    fish_catches: dict[PointKey, int] = Field(default_factory=dict)   # כמה פעמים כבר דגו בכל מקום
     bullets: list[Bullet] = Field(default_factory=list)
     grenades: list[Grenade] = Field(default_factory=list)
     smokes: list[SmokeCloud] = Field(default_factory=list)

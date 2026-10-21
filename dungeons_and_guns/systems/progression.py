@@ -8,13 +8,14 @@ from . import missions, ranks
 START_WEAPON = "glock19"
 START_AMMO = {"ammo_pistol": 80}          # מלאי התחלתי לגלוק
 SPAWN_INVULN_FRAMES = 60
+START_DOLLARS = 10                        # 100 מטבעות בהתחלה
 
 
 def new_game() -> GameState:
     x, y = tile_center(*START_TILE)
     state = GameState(
         player=Player(x=x, y=y),
-        inventory=Inventory(weapons=[START_WEAPON], ammo=dict(START_AMMO)),
+        inventory=Inventory(weapons=[START_WEAPON], ammo=dict(START_AMMO), dollars=START_DOLLARS),
         level=build_level(1),
     )
     _place_player(state)

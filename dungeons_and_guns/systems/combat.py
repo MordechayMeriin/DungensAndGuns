@@ -8,7 +8,7 @@ from ..data import CATALOG
 from ..config import TILE
 from ..models import (Bullet, Enemy, GameState, Grenade, MissionKind, SmokeCloud, Tile, Weapon,
                       WeaponCategory, WeaponKind)
-from . import health, missions, particles, ranks
+from . import health, missions, money, particles, ranks
 from .inventory import aim_bonus, current_weapon, gear_items, reduce_multiplier
 
 GRENADE_FUSE_MS = 900
@@ -193,11 +193,10 @@ def kill_enemy(state: GameState, e: Enemy, low: int, high: int, headline: str,
     """אויב מת: כסף, נקודות דרגה (לפי הנשק שלו) ואולי גם התחמושת שלו."""
     state.play("enemy_die")
     state.level.enemies.remove(e)
-    gain = random.randint(low, high)
-    state.inventory.money += gain
+    got = money.earn(state, random.randint(low, high))
     points, promoted = ranks.award_kill(state, e.weapon)
     extra = loot_ammo(state, e) + loot_grenades(state, e) if loot else ""
-    state.say("%s! +%d כסף +%d נקודות%s" % (headline, gain, points, extra))
+    state.say("%s! +%s +%d נקודות%s" % (headline, got, points, extra))
     if promoted:
         ranks.announce_promotion(state, promoted)
     missions.progress(state, MissionKind.KILL)

@@ -15,7 +15,7 @@ from .audio import SoundBank
 from .config import FPS, SCREEN_H, SCREEN_W, TITLE
 from .models import GameState
 from .saves import SaveError, SaveStore, SlotInfo
-from .systems import progression, shop, simulation
+from .systems import money, progression, shop, simulation
 from .systems import wheel as wheel_system
 from .ui.bag_view import BagView
 from .ui.canvas import Canvas
@@ -47,7 +47,10 @@ class App:
     def __init__(self):
         pygame.init()
         pygame.display.set_caption(TITLE)
-        self.canvas = Canvas(pygame.display.set_mode((SCREEN_W, SCREEN_H)))
+        # SCALED: המשחק מצויר תמיד ב-960x640 ומוגדל לכל המסך (בלי למתוח - עם פסים בצדדים אם צריך)
+        self.canvas = Canvas(pygame.display.set_mode((SCREEN_W, SCREEN_H),
+                                                     pygame.SCALED | pygame.FULLSCREEN))
+        self.fullscreen = True
         self.clock = pygame.time.Clock()
         self.sfx = SoundBank()
         self.saves = SaveStore()
@@ -77,6 +80,8 @@ class App:
         options.append(MenuOption(id="load", label="טעינת משחק", enabled=has_saves,
                                   detail="" if has_saves else "אין משחקים שמורים"))
         options.append(MenuOption(id="help", label="הוראות"))
+        options.append(MenuOption(id="screen", label="חלון רגיל" if self.fullscreen else "מסך מלא",
+                                  detail="אפשר גם במקש F11"))
         options.append(MenuOption(id="exit", label="יציאה"))
         self.menu.show(TITLE, options, subtitle="תפריט ראשי")
         self.menu.status = status
@@ -131,6 +136,9 @@ class App:
                     self.open_slots(SlotMode.LOAD)
                 case "help":
                     self.screen = Screen.HELP
+                case "screen":
+                    self.toggle_fullscreen()
+                    self.open_menu()
                 case "exit":
                     self.running = False
         elif option.id == "back":
@@ -163,9 +171,21 @@ class App:
         self.state.say("המשחק נטען - שלב %d" % state.level.number)
 
     # ---------- קלט ----------
+    def toggle_fullscreen(self) -> None:
+        try:
+            pygame.display.toggle_fullscreen()
+        except pygame.error:                    # יש מערכות שלא יודעות להחליף - פותחים מחדש
+            flags = pygame.SCALED | (0 if self.fullscreen else pygame.FULLSCREEN)
+            self.canvas.screen = pygame.display.set_mode((SCREEN_W, SCREEN_H), flags)
+        self.fullscreen = not self.fullscreen
+
     def handle_event(self, event: pygame.event.Event) -> None:
         if event.type == pygame.QUIT:
             self.running = False
+        elif event.type == pygame.KEYDOWN and event.key == controls.FULLSCREEN:
+            self.toggle_fullscreen()
+            if self.screen == Screen.MENU:
+                self.open_menu(self.menu.status)
         elif self.screen == Screen.HELP:
             if event.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
                 self.open_menu()
@@ -202,6 +222,9 @@ class App:
                 self.bag_view.scroll_by(-event.y * 60)
             elif state.wheel is None:
                 state.inventory.cycle_slot(-event.y)
+        elif (event.type == pygame.MOUSEBUTTONDOWN and event.button in (1, 3) and self.bag_view.open
+              and (coin := self.bag_view.coin_at(event.pos)) is not None):
+            money.exchange(state, coin, up=event.button == 1)     # קליק = להחליף, ימני = לפרוט
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if state.wheel is not None:
                 wheel_system.close(state)

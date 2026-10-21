@@ -6,7 +6,7 @@ import random
 from ..data import CATALOG
 from ..models import Crate, CrateKind, GameState, MissionKind
 from ..world import make_enemy
-from . import health, missions, particles
+from . import health, missions, money, particles
 from .inventory import give_random_gear, give_random_tool, give_weapon
 
 
@@ -35,9 +35,8 @@ def good_crate(state: GameState, crate: Crate) -> None:
         state.say("בתיבה היה מפתח! (יש לך %d)" % inv.keys)
         return
     if roll < 0.30:
-        gain = random.randint(20, 40 + number * 8)
-        inv.money += gain
-        state.say("פתחת תיבה! +%d כסף" % gain)
+        got = money.earn(state, random.randint(20, 40 + number * 8))
+        state.say("פתחת תיבה! +%s" % got)
         return
     if roll < 0.50:
         potion = CATALOG.potion(random.choice(["small", "small", "medium", "large"]))
@@ -75,9 +74,8 @@ def good_crate(state: GameState, crate: Crate) -> None:
             state.say("בתיבה היה ציוד: %s!" % item.name)
             return
 
-    gain = random.randint(25, 50 + number * 8)       # אם אין מה לתת - כסף
-    inv.money += gain
-    state.say("פתחת תיבה! +%d כסף" % gain)
+    got = money.earn(state, random.randint(25, 50 + number * 8))     # אם אין מה לתת - כסף
+    state.say("פתחת תיבה! +%s" % got)
 
 
 def bad_crate(state: GameState, crate: Crate) -> None:
@@ -105,6 +103,5 @@ def bad_crate(state: GameState, crate: Crate) -> None:
             health.infect(state)
             state.say("גז רעיל בתיבה! נדבקת - צריך תרופה גדולה")
     else:
-        loss = min(inv.money, max(15, int(inv.money * random.uniform(0.1, 0.3))))
-        inv.money -= loss
-        state.say("גנב היה בתיבה! -%d כסף" % loss)
+        loss = inv.lose(max(15, int(inv.money * random.uniform(0.1, 0.3))))
+        state.say("גנב היה בתיבה! -%d כסף (במטבעות)" % loss)

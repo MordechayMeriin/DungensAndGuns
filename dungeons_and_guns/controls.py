@@ -12,6 +12,7 @@ DRINK = pygame.K_t
 EAT = pygame.K_f
 SHOP = pygame.K_y
 SOUND = pygame.K_m
+FULLSCREEN = pygame.K_F11                # מסך מלא / חלון
 RESTART = pygame.K_r
 BAG = pygame.K_e                         # התיק
 NEXT_SLOT = pygame.K_x                   # משבצת הבאה בשורת המספרים

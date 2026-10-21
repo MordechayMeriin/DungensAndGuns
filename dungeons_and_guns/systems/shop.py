@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict
 
 from ..data import CATALOG
 from ..models import Food, GameState, ItemBase, ItemKind, Rank, Recipe
-from . import crafting, ranks, wheel
+from . import crafting, money, ranks, wheel
 from .inventory import give_item
 
 
@@ -94,7 +94,7 @@ def buy(state: GameState, row: ShopRow) -> bool:
         return False
     if row.owned or inv.money < item.price:
         return False
-    inv.money -= item.price
+    change = money.pay(state, item.price)
     state.play("buy")
 
     if row.kind == ShopKind.WHEEL:
@@ -103,11 +103,11 @@ def buy(state: GameState, row: ShopRow) -> bool:
     give_item(inv, ItemKind(row.kind), item)
     ammo = CATALOG.ammo_for(item) if row.kind == ShopKind.WEAPON else None
     if ammo:
-        state.say("קנית %s! קיבלת גם %d %s" % (item.name, ammo.pack, ammo.name))
+        state.say("קנית %s! קיבלת גם %d %s%s" % (item.name, ammo.pack, ammo.name, change))
     elif row.kind == ShopKind.AMMO:
-        state.say("קנית %d %s!" % (item.pack, item.name))
+        state.say("קנית %d %s!%s" % (item.pack, item.name, change))
     elif row.kind == ShopKind.POISON:
-        state.say("קנית רעל! %d החיצים הבאים מורעלים" % inv.poison_arrows)
+        state.say("קנית רעל! %d החיצים הבאים מורעלים%s" % (inv.poison_arrows, change))
     else:
-        state.say("קנית %s!" % item.name)
+        state.say("קנית %s!%s" % (item.name, change))
     return True

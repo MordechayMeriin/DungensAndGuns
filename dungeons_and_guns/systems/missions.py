@@ -8,7 +8,7 @@
 import random
 
 from ..models import GameState, Mission, MissionKind
-from . import ranks
+from . import money, ranks
 
 MINUTE_MS = 60_000
 
@@ -64,10 +64,10 @@ def progress(state: GameState, kind: MissionKind) -> None:
     if mission.progress < mission.goal:
         return
     state.mission = None
-    state.inventory.money += mission.money
+    got = money.earn(state, mission.money)
     promoted = ranks.add_points(state, mission.points)
     state.play("level")
-    state.say("השלמת את המשימה! +%d כסף +%d נקודות" % (mission.money, mission.points))
+    state.say("השלמת את המשימה! +%s +%d נקודות" % (got, mission.points))
     if promoted:
         ranks.announce_promotion(state, promoted)
 

@@ -88,6 +88,18 @@ class MissionKind(StrEnum):
     EXIT = "exit"           # לסיים את השלב
 
 
+class Coin(StrEnum):
+    """סוגי הכסף, מהקטן לגדול. כל אחד שווה 10 מהקודם."""
+
+    COIN = "coin"           # מטבע
+    DOLLAR = "dollar"       # דולר = 10 מטבעות
+    GOLD = "gold"           # מטיל זהב = 10 דולר (אותו מטיל זהב שמקבלים ממכרה זהב)
+    DIAMOND = "diamond"     # יהלום = 10 מטילי זהב (אותו יהלום שמקבלים ממכרה יהלום)
+
+
+COIN_VALUES = {Coin.COIN: 1, Coin.DOLLAR: 10, Coin.GOLD: 100, Coin.DIAMOND: 1000}
+
+
 class CrateKind(StrEnum):
     GOOD = "good"
     BAD = "bad"

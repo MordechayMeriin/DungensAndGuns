@@ -19,7 +19,7 @@ RANKS = [
     Rank(name='רס"מ',    points=550,  unlocks=("barak", "dragunov", "remington")),
     Rank(name='רס"ב',    points=720,  unlocks=("tango51", "blaser", "barrett82")),
     # מקלעים כבדים
-    Rank(name="סגן",     points=920,  unlocks=("mag", "browning")),
+    Rank(name="סגן",     points=920,  unlocks=("mag", "negev", "browning")),
     Rank(name="סרן",     points=1150, unlocks=("barrett_mg", "minigun")),
     Rank(name="רב סרן",  points=1500),
 ]
