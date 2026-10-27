@@ -2,7 +2,7 @@
 """הסדנה: מה אפשר להכין מהחומרים שאוספים מהמשאבים (בולי עץ, מטילי ברזל...).
 
 needs = איזה משאב וכמה פריטים ממנו. השמות של הפריטים עצמם כתובים ב-resources.py.
-כלי נשק ותרופות לא מכינים בסדנה - רק קונים. אוכל ותנור להפך: רק מכינים.
+כלי נשק, ציוד (הגנה ושיפורי נשק) ותרופות לא מכינים בסדנה - רק קונים. אוכל ותנור להפך: רק מכינים.
 האוכל יוצא נא - מבשלים אותו בתנור (גם זה בסדנה).
 """
 
@@ -22,18 +22,12 @@ RECIPES = [
     Recipe(kind=I.AMMO, item="ammo_sniper",   needs={R.COPPER: 2, R.GAS: 1, R.GOLD: 1}),
     Recipe(kind=I.AMMO, item="ammo_mg",       needs={R.COPPER: 3, R.GAS: 2, R.IRON: 1}),
     Recipe(kind=I.AMMO, item="ammo_arrow",    needs={R.TREE: 2, R.IRON: 1}),
-    # הגנה ושיפורי נשק
-    Recipe(kind=I.GEAR, item="helmet",        needs={R.IRON: 2}),
-    Recipe(kind=I.GEAR, item="shield",        needs={R.TREE: 2, R.IRON: 2}),
-    Recipe(kind=I.GEAR, item="vest",          needs={R.IRON: 3, R.SHEEP: 2}),
-    Recipe(kind=I.GEAR, item="sight",         needs={R.COPPER: 2, R.GOLD: 2}),
-    Recipe(kind=I.GEAR, item="launcher",      needs={R.VOLCANO: 2, R.IRON: 2}),
     # מפתח לשערים
     Recipe(kind=I.KEY,  item="key",           needs={R.IRON: 1}),
     # רעל לחיצים: תרופה בינונית + כותנה + צמר
     Recipe(kind=I.POISON, item="poison",      needs={R.COTTON: 1, R.SHEEP: 1}, potions={"medium": 1}),
-    # תנור מלבנים (3 בישולים)
-    Recipe(kind=I.OVEN, item="oven",          needs={R.BRICKS: 3}),
+    # תנור מלבנה אחת (3 בישולים)
+    Recipe(kind=I.OVEN, item="oven",          needs={R.BRICKS: 1}),
     # אוכל מהחווה (אוכלים במקש F) - יוצא נא, מבשלים בתנור
     Recipe(kind=I.FOOD, item="dough",         needs={R.WHEAT: 2}),
     Recipe(kind=I.FOOD, item="eggs",          needs={R.CHICKEN: 2}),

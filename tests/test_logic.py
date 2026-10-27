@@ -9,9 +9,10 @@ import pytest
 from pydantic import ValidationError
 
 from dungeons_and_guns.data import CATALOG, Catalog
-from dungeons_and_guns.models import (HOTBAR_SIZE, Crate, CrateKind, Inventory, ItemKind,
-                                      PlayerInput, Recipe, Resource, ResourceKind, SlotItem, Tile,
-                                      Weapon, WeaponCategory, WeaponKind, WheelOutcome)
+from dungeons_and_guns.models import (HOTBAR_SIZE, Crate, CrateKind, Inventory,
+                                      ItemKind, PlayerInput, Recipe, Resource, ResourceKind,
+                                      SlotItem, Tile, Weapon, WeaponCategory, WeaponKind,
+                                      WheelOutcome)
 from dungeons_and_guns.systems import (combat, crafting, crates, health, interaction, progression,
                                        ranks, shop, simulation)
 from dungeons_and_guns.systems import wheel as wheel_system
@@ -413,9 +414,9 @@ def recipe_for(item_id):
     return next(r for r in CATALOG.recipes if r.item == item_id)
 
 
-def test_workshop_makes_no_weapons_or_potions():
-    assert all(r.kind in (ItemKind.AMMO, ItemKind.GEAR, ItemKind.FOOD, ItemKind.KEY, ItemKind.OVEN,
-                          ItemKind.POISON) for r in CATALOG.recipes)
+def test_workshop_makes_no_weapons_gear_or_potions():
+    assert all(r.kind in (ItemKind.AMMO, ItemKind.FOOD, ItemKind.KEY, ItemKind.OVEN, ItemKind.POISON)
+               for r in CATALOG.recipes)
 
 
 def test_craft_food_then_eat_it(state):
@@ -504,7 +505,7 @@ def build_oven(state):
 
 
 def test_oven_is_built_from_bricks_not_bought(state):
-    assert recipe_for("oven").needs == {ResourceKind.BRICKS: 3}
+    assert recipe_for("oven").needs == {ResourceKind.BRICKS: 1}
     rows = [r for s in shop.shop_sections(state) for r in s.rows]
     assert not any(r.kind != ShopKind.CRAFT and r.item.id == "oven" for r in rows)
     build_oven(state)
@@ -612,14 +613,13 @@ def test_food_does_not_cure_sickness(state):
 
 
 def test_craft_uses_up_materials(state):
-    recipe = recipe_for("helmet")                        # 2 מטילי ברזל
+    recipe = recipe_for("key")                           # מטיל ברזל אחד
     state.inventory.add_material(ResourceKind.IRON, 3)
     money = state.inventory.money
     assert crafting.craft(state, recipe)
-    assert "helmet" in state.inventory.gear
-    assert state.inventory.material_count(ResourceKind.IRON) == 1
+    assert state.inventory.keys == 1
+    assert state.inventory.material_count(ResourceKind.IRON) == 2
     assert state.inventory.money == money               # בסדנה לא משלמים כסף
-    assert not crafting.craft(state, recipe)             # קסדה מכינים רק פעם אחת
 
 
 def test_craft_without_enough_materials_fails(state):

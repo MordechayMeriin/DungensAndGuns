@@ -65,7 +65,7 @@ def cook(state: GameState, raw: Food) -> bool:
     cooked = CATALOG.food(raw.cooks_into)
     if inv.oven_uses <= 0:
         state.play("no", gap=400)
-        state.say("אין לך תנור - בנה אחד בסדנה מלבנים")
+        state.say("אין לך תנור - בנה אחד בסדנה מלבנה")
         return False
     if inv.food_count(raw.id) <= 0:
         state.play("no", gap=400)
@@ -84,5 +84,5 @@ def cook(state: GameState, raw: Food) -> bool:
     if inv.oven_uses:
         state.say("בישלת %s! (בתנור נשארו %d בישולים)" % (cooked.name, inv.oven_uses))
     else:
-        state.say("בישלת %s! התנור נגמר - צריך לבנות חדש מלבנים" % cooked.name)
+        state.say("בישלת %s! התנור נגמר - צריך לבנות חדש מלבנה" % cooked.name)
     return True
