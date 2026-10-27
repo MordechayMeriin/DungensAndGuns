@@ -5,7 +5,7 @@ from functools import cached_property
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from ..models import (AmmoType, Food, Gear, GearCategory, ItemBase, ItemKind, Key, Oven, Poison, Potion, Rank, Recipe, ResourceKind,
+from ..models import (AmmoType, Food, Gear, GearCategory, ItemBase, ItemKind, Key, Material, Oven, Poison, Potion, Rank, Recipe, ResourceKind,
                       ResourceType, Tool, Weapon, WeaponCategory, WeaponKind, WheelSlice,
                       WheelTicket)
 
@@ -30,6 +30,7 @@ class Catalog(BaseModel):
     oven: Oven
     poison: Poison
     resources: list[ResourceType]
+    materials: list[Material]
     recipes: list[Recipe]
     ranks: list[Rank]
     wheel_ticket: WheelTicket
@@ -54,7 +55,11 @@ class Catalog(BaseModel):
         missing = set(ResourceKind) - {r.kind for r in self.resources}
         if missing:
             raise ValueError("resource kinds without a definition: %s" % sorted(missing))
-        materials = {r.kind for r in self.resources if r.material}
+        materials = {m.id for m in self.materials}
+        foods = {f.id for f in self.foods}
+        for r in self.resources:
+            if not set(r.drops) <= materials or (r.food is not None and r.food not in foods):
+                raise ValueError("resource %s drops unknown things" % r.kind)
         for recipe in self.recipes:
             try:
                 item = self.item(recipe.kind, recipe.item)
@@ -67,7 +72,7 @@ class Catalog(BaseModel):
             if unknown:
                 raise ValueError("recipe %s needs unknown potions: %s" % (recipe.item, sorted(unknown)))
             if not set(recipe.needs) <= materials:
-                raise ValueError("recipe %s needs resources that give no material: %s"
+                raise ValueError("recipe %s needs unknown materials: %s"
                                  % (recipe.item, sorted(set(recipe.needs) - materials)))
         if self.poison.ammo not in ammo_ids:
             raise ValueError("poison is for unknown ammo %s" % self.poison.ammo)
@@ -139,6 +144,13 @@ class Catalog(BaseModel):
     def resource(self, kind: ResourceKind) -> ResourceType:
         return self._resources[kind]
 
+    def material(self, material_id: str) -> Material:
+        return self._materials[material_id]
+
+    @cached_property
+    def _materials(self) -> dict[str, Material]:
+        return {m.id: m for m in self.materials}
+
     def item(self, kind: ItemKind, item_id: str) -> ItemBase:
         """פריט לפי הסוג שלו וה-id (זורק KeyError אם אין כזה)."""
         match kind:
@@ -180,6 +192,14 @@ class Catalog(BaseModel):
     @property
     def gear_categories(self) -> list[GearCategory]:
         return list(GearCategory)
+
+    @cached_property
+    def food_types(self) -> list[Food]:
+        """סוגי האוכל (המבושלים - 6 היום). אוכל נא נחשב כמו מה שהוא נהיה כשמבשלים: בצק = לחם."""
+        return [f for f in self.foods if not f.raw]
+
+    def food_type(self, food: Food) -> str:
+        return food.cooks_into or food.id
 
     @cached_property
     def raw_foods(self) -> list[Food]:

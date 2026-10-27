@@ -96,6 +96,12 @@ def drink_potion(state: GameState, potion_id: str | None = None) -> None:
         state.say("נגמרה לך %s - קנה בחנות!" % CATALOG.potion(potion_id).name)
 
 
+def missing_food(state: GameState) -> list[str]:
+    """אילו סוגי אוכל עוד לא אכלו בשלב הזה (את השמות). בלי זה אי אפשר לצאת מהשלב."""
+    # המילה הראשונה בשם - "דג" ולא "דג מטוגן", כי גם דג נא נחשב
+    return [f.name.split()[0] for f in CATALOG.food_types if f.id not in state.level.eaten]
+
+
 def eat(state: GameState, food_id: str | None = None) -> None:
     """אוכל. בלי food_id (מקש F) - המנה שהכי מתאימה לחיים שחסרים (בלי לבזבז עוגה על שריטה).
 
@@ -124,6 +130,7 @@ def eat(state: GameState, food_id: str | None = None) -> None:
     if not inv.food[food.id]:
         del inv.food[food.id]
     player.hp = min(player.max_hp, player.hp + food.heal)
+    state.level.eaten.add(CATALOG.food_type(food))     # צריך לאכול מכל סוג בכל שלב
     state.play("potion")
     state.say("אכלת %s! +%d חיים" % (food.name, food.heal))
     if food.raw and not player.sick and random.random() < RAW_FOOD_SICK_CHANCE:

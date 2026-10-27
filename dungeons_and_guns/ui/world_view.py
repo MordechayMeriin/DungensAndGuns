@@ -8,7 +8,7 @@ import pygame
 from ..config import SCREEN_H, SCREEN_W, TILE
 from ..data import CATALOG
 from ..models import GameState, Tile, WeaponKind
-from ..systems import weather
+from ..systems import health, weather
 from ..systems.inventory import current_weapon
 from . import colors
 from .canvas import Canvas
@@ -132,6 +132,13 @@ class WorldView:
         screen = self.canvas.screen
         ex, ey = state.level.exit_tile
         gate = pygame.Rect(self.sx(ex * TILE + 2), self.sy(ey * TILE + 2), TILE - 4, TILE - 4)
+        if health.missing_food(state):                                         # נעולה - עוד לא אכלו מהכל
+            pygame.draw.rect(screen, (60, 30, 30), gate, border_radius=4)
+            pygame.draw.rect(screen, (200, 70, 70), gate, 3, border_radius=4)
+            body = pygame.Rect(gate.centerx - 6, gate.centery - 2, 12, 9)
+            pygame.draw.arc(screen, (220, 220, 230), pygame.Rect(body.x + 2, body.y - 7, 8, 12), 0, math.pi, 2)
+            pygame.draw.rect(screen, (220, 220, 230), body, border_radius=2)   # מנעול
+            return
         pygame.draw.rect(screen, (62, 52, 20), gate, border_radius=4)          # פתח פתוח
         pygame.draw.rect(screen, colors.EXIT, gate, 3, border_radius=4)        # מסגרת
         bright = math.sin(state.now / 260.0) > 0

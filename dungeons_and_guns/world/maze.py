@@ -30,8 +30,9 @@ def generate_maze(w: int, h: int) -> Grid:
     return grid
 
 
-def reachable(grid: Grid, start: tuple[int, int]) -> set[tuple[int, int]]:
-    """כל המשבצות שאפשר להגיע אליהן ברגל (רק על רצפה) מ-start."""
+def reachable(grid: Grid, start: tuple[int, int],
+              passable: tuple[Tile, ...] = (Tile.FLOOR,)) -> set[tuple[int, int]]:
+    """כל המשבצות שאפשר להגיע אליהן ברגל מ-start (בלי שום דבר: רק על רצפה)."""
     rows, cols = len(grid), len(grid[0])
     seen = {start}
     queue = [start]
@@ -39,7 +40,7 @@ def reachable(grid: Grid, start: tuple[int, int]) -> set[tuple[int, int]]:
         x, y = queue.pop()
         for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
             if (0 <= nx < cols and 0 <= ny < rows
-                    and (nx, ny) not in seen and grid[ny][nx] == Tile.FLOOR):
+                    and (nx, ny) not in seen and grid[ny][nx] in passable):
                 seen.add((nx, ny))
                 queue.append((nx, ny))
     return seen

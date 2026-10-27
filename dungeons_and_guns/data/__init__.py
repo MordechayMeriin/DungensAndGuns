@@ -2,6 +2,7 @@
 """התוכן של המשחק. להוספת נשק/כלי/משאב/מתכון/דרגה חדשים - עורכים את הקבצים בתיקייה הזו."""
 
 from .catalog import Catalog
+from .materials import MATERIALS
 from .items import AMMO_TYPES, FOODS, GEAR, KEY, OVEN, POISON, POTIONS, TOOLS, WHEEL_SLICES, WHEEL_TICKET
 from .ranks import RANKS
 from .recipes import RECIPES
@@ -19,6 +20,7 @@ CATALOG = Catalog(
     oven=OVEN,
     poison=POISON,
     resources=RESOURCE_TYPES,
+    materials=MATERIALS,
     recipes=RECIPES,
     ranks=RANKS,
     wheel_ticket=WHEEL_TICKET,

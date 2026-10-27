@@ -9,7 +9,7 @@ import pygame
 from ..config import SCREEN_H, SCREEN_W
 from ..data import CATALOG
 from ..models import GameState
-from ..systems import missions
+from ..systems import health, missions
 from ..systems.interaction import interact_hint
 from ..systems.inventory import current_weapon
 from ..systems.ranks import current_rank
@@ -61,14 +61,23 @@ def mission_line(state: GameState) -> str:
 
 
 def _draw_mission(canvas: Canvas, state: GameState) -> None:
+    """משימה, ומתחתיה - מה עוד צריך לאכול בשלב הזה כדי שהיציאה תיפתח."""
+    y = 38
     line = mission_line(state)
-    if not line:
-        return
-    urgent = missions.time_left(state) < 60_000
-    text = canvas.text(canvas.font_small, line, colors.HP_RED if urgent else (255, 214, 102))
-    box = pygame.Rect(8, 38, text.get_width() + 14, text.get_height() + 6)
+    if line:
+        urgent = missions.time_left(state) < 60_000
+        y = _corner_line(canvas, line, colors.HP_RED if urgent else (255, 214, 102), y)
+    hungry = health.missing_food(state)
+    if hungry:
+        _corner_line(canvas, "לאכול בשלב הזה: %s" % ", ".join(hungry), (150, 220, 150), y)
+
+
+def _corner_line(canvas: Canvas, line: str, color, y: int) -> int:
+    text = canvas.text(canvas.font_small, line, color)
+    box = pygame.Rect(8, y, text.get_width() + 14, text.get_height() + 6)
     pygame.draw.rect(canvas.screen, (24, 24, 30), box, border_radius=5)
     canvas.screen.blit(text, (box.x + 7, box.y + 3))
+    return box.bottom + 4
 
 
 def _label(canvas: Canvas, text: str, pos: tuple[int, int], color) -> None:

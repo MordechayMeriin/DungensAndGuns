@@ -482,3 +482,50 @@ def test_trap_holds_you_for_a_while_and_works_once(state):
     state.now += traps.TRAP_STUCK_MS + 1
     simulation.update_player(state, PlayerInput(dx=-1))
     assert state.player.x < x                           # אפשר לזוז שוב
+
+
+# ---------- חייבים לאכול מכל סוג ----------
+def stand_on_exit(state):
+    ex, ey = state.level.exit_tile
+    state.player.x, state.player.y = ex * TILE + TILE / 2, ey * TILE + TILE / 2
+
+
+def test_exit_locked_until_every_food_type_eaten(state):
+    from dungeons_and_guns.systems import health
+    stand_on_exit(state)
+    interaction.interact(state)
+    assert state.level.number == 1 and "נעולה" in state.feedback.message
+    for food in ("dough", "eggs", "cheese", "batter", "raw_fish", "raw_meat"):   # נא נחשב כמו מבושל
+        state.inventory.add_food(food)
+        state.player.hp = 10
+        state.now += 1000
+        health.eat(state, food)
+    assert health.missing_food(state) == []
+    state.now += 1000
+    interaction.interact(state)
+    assert state.level.number == 2
+    assert len(health.missing_food(state)) == 6                       # בשלב חדש - שוב מההתחלה
+
+
+def test_missing_food_shows_what_is_left(state):
+    from dungeons_and_guns.systems import health
+    state.inventory.add_food("cake")
+    state.player.hp = 10
+    health.eat(state, "cake")
+    assert "עוגה" not in health.missing_food(state) and "לחם" in health.missing_food(state)
+    stand_on_exit(state)
+    assert "לחם" in interaction.interact_hint(state)
+
+
+@pytest.mark.parametrize("number", range(1, 12))
+def test_every_level_has_what_you_need_to_cook_everything(number):
+    from dungeons_and_guns.models import ResourceKind
+    random.seed(number * 7)
+    level = build_level(number)
+    from dungeons_and_guns.world.maze import reachable
+    open_area = reachable(level.grid, START_TILE, (Tile.FLOOR, Tile.GATE))   # שער נפתח במפתח
+    for kind in (ResourceKind.WHEAT, ResourceKind.CHICKEN, ResourceKind.COW):
+        assert sum(1 for r in level.resources if r.kind == kind
+                   and (int(r.x // TILE), int(r.y // TILE)) in open_area) >= 3
+    fish = [(x, y) for y, row in enumerate(level.grid) for x, t in enumerate(row) if t == Tile.FISH]
+    assert any((x + dx, y + dy) in open_area for x, y in fish for dx in (-1, 0, 1) for dy in (-1, 0, 1))

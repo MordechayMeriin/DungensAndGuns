@@ -328,7 +328,7 @@ def test_space_uses_what_is_selected(state):
     state.now += 1000
     inv.select_slot(2)
     simulation.use_selected(state)
-    assert inv.food_count("bread") == 0 and state.player.hp == 100
+    assert inv.food_count("bread") == 0 and state.player.hp == 90 + CATALOG.food("bread").heal
     inv.select_slot(5)                                  # משבצת ריקה - לא קורה כלום
     simulation.use_selected(state)
     assert not state.level.bullets
@@ -401,11 +401,32 @@ def test_cow_has_five_percent_to_make_you_sick(state, monkeypatch, roll, sick):
     assert state.player.sick == sick
 
 
+@pytest.mark.parametrize("kind, materials", [
+    (ResourceKind.CHICKEN, ["egg"]),
+    (ResourceKind.COW, ["milk", "leather", "bone"]),
+    (ResourceKind.SHEEP, ["wool", "bone"]),
+])
+def test_animals_give_meat_and_more(state, monkeypatch, kind, materials):
+    monkeypatch.setattr(interaction.random, "random", lambda: 0.9)    # הפרה לא מדביקה
+    animal = Resource(x=state.player.x, y=state.player.y, kind=kind)
+    state.level.resources.append(animal)
+    interaction.harvest(state, animal)
+    for material in materials:
+        assert state.inventory.material_count(material) == 1
+    assert state.inventory.food_count("raw_meat") == 1
+    assert "בשר נא" in state.feedback.message
+
+
+def test_old_save_materials_get_new_names():
+    inv = Inventory.model_validate({"materials": {"cow": 2, "tree": 1, "iron": 3}})
+    assert inv.materials == {"milk": 2, "log": 1, "iron": 3}
+
+
 def test_harvest_without_tool_gives_nothing(state):
     tree = Resource(x=state.player.x, y=state.player.y, kind=ResourceKind.TREE)
     state.level.resources.append(tree)
     interaction.harvest(state, tree)
-    assert state.inventory.material_count(ResourceKind.TREE) == 0
+    assert state.inventory.material_count("log") == 0
     assert tree in state.level.resources
 
 
@@ -447,7 +468,7 @@ def test_buy_poison(state):
 def test_craft_poison_from_medium_potion_cotton_and_wool(state):
     recipe = recipe_for("poison")
     state.inventory.add_material(ResourceKind.COTTON, 1)
-    state.inventory.add_material(ResourceKind.SHEEP, 1)
+    state.inventory.add_material("wool", 1)
     assert not crafting.craft(state, recipe)                 # אין תרופה בינונית
     assert "תרופה בינונית" in state.feedback.message
     state.inventory.add_potion("medium")
@@ -505,7 +526,7 @@ def build_oven(state):
 
 
 def test_oven_is_built_from_bricks_not_bought(state):
-    assert recipe_for("oven").needs == {ResourceKind.BRICKS: 1}
+    assert recipe_for("oven").needs == {"brick": 1}
     rows = [r for s in shop.shop_sections(state) for r in s.rows]
     assert not any(r.kind != ShopKind.CRAFT and r.item.id == "oven" for r in rows)
     build_oven(state)
@@ -586,11 +607,11 @@ def test_eat_key_prefers_cooked_food(state):
 
 
 def test_eat_picks_food_that_fits_missing_hp(state):
-    state.inventory.add_food("bread")                   # 15
-    state.inventory.add_food("cake")                    # 35
-    state.player.hp = state.player.max_hp - 10
+    state.inventory.add_food("bread")                   # 7
+    state.inventory.add_food("cake")                    # 10
+    state.player.hp = state.player.max_hp - 5
     health.eat(state)
-    assert state.inventory.food_count("bread") == 0     # לא מבזבזים עוגה על 10 חיים
+    assert state.inventory.food_count("bread") == 0     # לא מבזבזים עוגה על 5 חיים
     assert state.inventory.food_count("cake") == 1
     state.now += 1000
     state.player.hp = 20
@@ -613,13 +634,22 @@ def test_food_does_not_cure_sickness(state):
 
 
 def test_craft_uses_up_materials(state):
-    recipe = recipe_for("key")                           # מטיל ברזל אחד
-    state.inventory.add_material(ResourceKind.IRON, 3)
+    recipe = recipe_for("ammo_pistol")                   # מטיל נחושת ומיכל גז
+    state.inventory.add_material("copper", 3)
+    state.inventory.add_material("gas", 1)
     money = state.inventory.money
     assert crafting.craft(state, recipe)
-    assert state.inventory.keys == 1
-    assert state.inventory.material_count(ResourceKind.IRON) == 2
+    assert state.inventory.material_count("copper") == 2 and state.inventory.material_count("gas") == 0
     assert state.inventory.money == money               # בסדנה לא משלמים כסף
+
+
+def test_key_only_from_a_bone(state):
+    keys = [r for r in CATALOG.recipes if r.item == "key"]
+    assert [r.needs for r in keys] == [{"bone": 1}]
+    recipe = keys[0]
+    state.inventory.add_material("bone", 1)
+    assert crafting.craft(state, recipe)
+    assert state.inventory.keys == 1 and state.inventory.material_count("bone") == 0
 
 
 def test_craft_without_enough_materials_fails(state):

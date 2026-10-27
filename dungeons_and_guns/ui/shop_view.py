@@ -34,7 +34,7 @@ def row_label(state: GameState, row: ShopRow) -> str:
                     name = "%s%s +%d חיים" % (item.name, raw, item.heal)
                 case _:
                     name = item.name
-            needs = ", ".join(["%d %s (יש %d)" % (n, CATALOG.resource(k).material, inv.material_count(k))
+            needs = ", ".join(["%d %s (יש %d)" % (n, CATALOG.material(k).name, inv.material_count(k))
                                for k, n in row.recipe.needs.items()]
                               + ["%d %s (יש %d)" % (n, CATALOG.potion(pid).name, inv.potion_count(pid))
                                  for pid, n in row.recipe.potions.items()])

@@ -48,6 +48,8 @@ PAINTERS = {
     "mat_cotton": it.paint_mat_cotton, "mat_cow": it.paint_mat_milk,
     "mat_sheep": it.paint_mat_wool, "mat_chicken": it.paint_mat_egg,
     "mat_volcano": it.paint_mat_lava,
+    "mat_leather": it.paint_mat_leather, "mat_bone": it.paint_mat_bone,
+    "raw_meat": lambda g: it.paint_meat(g, cooked=False), "steak": lambda g: it.paint_meat(g, cooked=True),
 }
 
 # פריטים שיש להם תצלום אמיתי בשם קובץ אחר

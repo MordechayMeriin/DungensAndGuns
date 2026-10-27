@@ -2,11 +2,11 @@
 """הסדנה: מכינים תחמושת, ציוד, אוכל ותנור מהחומרים שבתיק, ומבשלים אוכל נא בתנור."""
 
 from ..data import CATALOG
-from ..models import Food, GameState, ItemKind, Recipe, ResourceKind, SlotItem
+from ..models import Food, GameState, ItemKind, Recipe, SlotItem
 from .inventory import give_item, owns
 
 
-def missing(state: GameState, recipe: Recipe) -> dict[ResourceKind, int]:
+def missing(state: GameState, recipe: Recipe) -> dict[str, int]:
     """כמה חסר מכל חומר (ריק = אפשר להכין)."""
     inv = state.inventory
     return {kind: need - inv.material_count(kind) for kind, need in recipe.needs.items()
@@ -34,7 +34,7 @@ def craft(state: GameState, recipe: Recipe) -> bool:
         return False
     item = CATALOG.item(recipe.kind, recipe.item)
     if not can_craft(state, recipe):
-        lacking = ["%d %s" % (n, CATALOG.resource(kind).material)
+        lacking = ["%d %s" % (n, CATALOG.material(kind).name)
                    for kind, n in missing(state, recipe).items()]
         lacking += ["%d %s" % (n, CATALOG.potion(pid).name)
                     for pid, n in missing_potions(state, recipe).items()]

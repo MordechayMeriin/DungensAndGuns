@@ -10,7 +10,7 @@ from pydantic import (BaseModel, BeforeValidator, ConfigDict, Field, field_valid
 from ..config import TILE
 from .catalog import WheelSlice
 from .entities import Bullet, Crate, Enemy, Grenade, Resource, SmokeCloud, Spark
-from .enums import COIN_VALUES, Coin, ItemKind, MissionKind, ResourceKind, Tile
+from .enums import COIN_VALUES, Coin, ItemKind, MissionKind, Tile
 
 HOTBAR_SIZE = 10        # שורת המספרים: מקשים 1-9 ו-0
 HOTBAR_KINDS = (ItemKind.WEAPON, ItemKind.POTION, ItemKind.FOOD)
@@ -85,7 +85,10 @@ class SlotItem(_Model):
 
 
 # מטילי זהב ויהלומים הם גם כסף וגם חומרים לסדנה - הם נשמרים עם החומרים
-COIN_MATERIALS = {Coin.GOLD: ResourceKind.GOLD, Coin.DIAMOND: ResourceKind.DIAMOND}
+COIN_MATERIALS = {Coin.GOLD: "gold", Coin.DIAMOND: "diamond"}
+# שמירות ישנות: לכל משאב היה חומר אחד, שנשמר לפי שם המשאב
+OLD_MATERIAL_IDS = {"tree": "log", "bricks": "brick", "cow": "milk", "sheep": "wool",
+                    "chicken": "egg", "volcano": "lava"}
 SMALL_TO_BIG = [Coin.COIN, Coin.DOLLAR, Coin.GOLD, Coin.DIAMOND]
 
 
@@ -112,7 +115,18 @@ class Inventory(_Model):
     oven_uses: int = 0                                          # כמה בישולים נשארו בתנור
     poison_arrows: int = 0                                      # כמה מהחיצים הבאים מורעלים
     food: dict[str, int] = Field(default_factory=dict)          # אוכל מהסדנה -> כמה מנות
-    materials: dict[ResourceKind, int] = Field(default_factory=dict)  # משאב -> כמה פריטים נאספו
+    materials: dict[str, int] = Field(default_factory=dict)    # חומר -> כמה יש
+
+    @field_validator("materials", mode="before")
+    @classmethod
+    def _old_material_ids(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        renamed: dict[str, int] = {}
+        for key, count in value.items():
+            key = OLD_MATERIAL_IDS.get(str(key), str(key))
+            renamed[key] = renamed.get(key, 0) + count
+        return renamed
 
     @model_validator(mode="before")
     @classmethod
@@ -125,9 +139,8 @@ class Inventory(_Model):
         data["coins"] = data.get("coins", 0) + parts[Coin.COIN]
         data["dollars"] = data.get("dollars", 0) + parts[Coin.DOLLAR]
         materials = dict(data.get("materials", {}))
-        for coin, kind in COIN_MATERIALS.items():
+        for coin, key in COIN_MATERIALS.items():
             if parts[coin]:
-                key = kind.value if any(isinstance(k, str) for k in materials) else kind
                 materials[key] = materials.get(key, 0) + parts[coin]
         data["materials"] = materials
         return data
@@ -262,11 +275,11 @@ class Inventory(_Model):
         self.food[food_id] = self.food.get(food_id, 0) + count
         self.add_to_hotbar(SlotItem(kind=ItemKind.FOOD, id=food_id))
 
-    def material_count(self, kind: ResourceKind) -> int:
-        return self.materials.get(kind, 0)
+    def material_count(self, material_id: str) -> int:
+        return self.materials.get(material_id, 0)
 
-    def add_material(self, kind: ResourceKind, count: int = 1) -> None:
-        self.materials[kind] = self.materials.get(kind, 0) + count
+    def add_material(self, material_id: str, count: int = 1) -> None:
+        self.materials[material_id] = self.materials.get(material_id, 0) + count
 
     # ---------- שורת המספרים ----------
     @property
@@ -313,6 +326,7 @@ class Level(_Model):
     max_weapon: int                     # עד איזה נשק (ברשימה הממוינת) האויבים מקבלים
     trap: Point | None = None           # מלכודת נסתרת (לא רואים אותה עד שנופלים בה)
     sprung_trap: Point | None = None    # מלכודת שכבר נפלו בה - עכשיו רואים אותה
+    eaten: set[str] = Field(default_factory=set)   # סוגי האוכל שאכלו בשלב הזה
     enemies: list[Enemy] = Field(default_factory=list)
     resources: list[Resource] = Field(default_factory=list)
     crates: list[Crate] = Field(default_factory=list)

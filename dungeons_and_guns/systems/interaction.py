@@ -74,7 +74,11 @@ def interact(state: GameState) -> None:
     if state.now - state.player.last_interact < INTERACT_COOLDOWN_MS:
         return
     if at_exit(state):
-        leave_level(state)
+        if health.missing_food(state):
+            state.play("no", gap=400)
+            state.say("היציאה נעולה! עוד לא אכלת בשלב הזה: %s" % ", ".join(health.missing_food(state)))
+        else:
+            leave_level(state)
     elif (res := nearest_resource(state)) is not None:
         harvest(state, res)
     elif (tile := nearest_fish_tile(state)) is not None:
@@ -102,9 +106,16 @@ def harvest(state: GameState, res: Resource) -> None:
 
     gain = random.randint(*info.value)
     got = " +%s" % money.earn(state, gain) if gain else ""
-    if info.material:                       # מטיל זהב ויהלום הם גם כסף
-        inv.add_material(res.kind)
-        got += (" וגם %s" if got else " קיבלת %s") % info.material
+    things = []
+    for material_id in info.drops:          # מטיל זהב ויהלום הם גם כסף
+        inv.add_material(material_id)
+        things.append(CATALOG.material(material_id).name)
+    if info.food:
+        inv.add_food(info.food)
+        things.append(CATALOG.food(info.food).name)
+    if things:
+        listed = things[0] if len(things) == 1 else ", ".join(things[:-1]) + " ו" + things[-1]
+        got += (" וגם %s" if got else " קיבלת %s") % listed
     state.play("pickup")
 
     if res.kind == ResourceKind.CAVE:
@@ -139,7 +150,7 @@ def open_gate(state: GameState, gate: tuple[int, int]) -> None:
     inv = state.inventory
     if inv.keys <= 0:
         state.play("no", gap=400)
-        state.say("השער נעול - צריך מפתח (בחנות, בסדנה מברזל, בתיבות ובגלגל)")
+        state.say("השער נעול - צריך מפתח (בחנות, בסדנה מעצם, בתיבות ובגלגל)")
         return
     inv.keys -= 1
     tx, ty = gate
@@ -172,6 +183,8 @@ def interact_hint(state: GameState) -> str:
     """שורת עזרה קטנה שמראה מה אפשר לעשות במקום שבו אתה עומד."""
     inv = state.inventory
     if at_exit(state):
+        if health.missing_food(state):
+            return "היציאה נעולה - חסר לאכול: %s" % ", ".join(health.missing_food(state))
         return "Q = מעבר לשלב הבא"
     res = nearest_resource(state)
     if res is not None:

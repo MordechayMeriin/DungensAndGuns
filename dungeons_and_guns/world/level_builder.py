@@ -5,12 +5,14 @@ import random
 
 from ..config import TILE
 from ..data import CATALOG
-from ..models import Crate, CrateKind, Enemy, Level, Resource, Tile
+from ..models import Crate, CrateKind, Enemy, Level, Resource, ResourceKind, Tile
 from .maze import Grid, generate_maze, path_exists, reachable, shortest_path
 
 START_TILE = (1, 1)
 ARMORED_SHARE = 0.3         # איזה חלק מהקירות הפנימיים משוריין
 TRAP_CHANCE = 0.25          # בערך שלב אחד מתוך 4 (חוץ מהראשון) יש בו מלכודת נסתרת
+# בכל שלב חייבים לאכול מכל סוגי האוכל - אז בכל שלב יש לפחות מה שצריך כדי להכין אותם
+FOOD_RESOURCES = {ResourceKind.WHEAT: 3, ResourceKind.CHICKEN: 3, ResourceKind.COW: 3}
 
 
 def tile_center(tx: int, ty: int) -> tuple[float, float]:
@@ -74,6 +76,9 @@ def build_level(number: int) -> Level:
     place_water(level.grid, free, exit_tile, target=5 + number * 2)
     treasure = [(int(o.x // TILE), int(o.y // TILE)) for o in level.crates + level.resources]
     place_gates(level.grid, free, exit_tile, treasure, target=min(1 + number // 2, 4))
+    enemies = [(int(e.x // TILE), int(e.y // TILE)) for e in level.enemies]
+    ensure_fishing_spot(level.grid, exit_tile, set(treasure) | set(enemies))
+    ensure_food_resources(level, set(treasure) | set(enemies))
     armor_walls(level.grid)
     if number > 1 and random.random() < TRAP_CHANCE:
         level.trap = place_trap(level, treasure)
@@ -85,6 +90,46 @@ def place_trap(level: Level, occupied: list[tuple[int, int]]) -> tuple[int, int]
     path = shortest_path(level.grid, START_TILE, level.exit_tile)
     middle = [t for t in path[len(path) * 3 // 10: len(path) * 8 // 10] if t not in occupied]
     return random.choice(middle) if middle else None
+
+
+def ensure_food_resources(level: Level, occupied: set) -> None:
+    """בכל שלב יש לפחות 3 שדות חיטה, 3 תרנגולות ו-3 פרות שאפשר להגיע אליהם ברגל (שער נפתח במפתח)."""
+    open_area = reachable(level.grid, START_TILE, passable=(Tile.FLOOR, Tile.GATE))
+    spots = [t for t in open_area if level.grid[t[1]][t[0]] == Tile.FLOOR
+             and t not in occupied and t not in (START_TILE, level.exit_tile)]
+    random.shuffle(spots)
+    for kind, need in FOOD_RESOURCES.items():
+        have = sum(1 for r in level.resources if r.kind == kind
+                   and (int(r.x // TILE), int(r.y // TILE)) in open_area)
+        for _ in range(max(0, need - have)):
+            if not spots:
+                return
+            x, y = tile_center(*spots.pop())
+            level.resources.append(Resource(x=x, y=y, kind=kind))
+
+
+def ensure_fishing_spot(grid: Grid, exit_tile: tuple[int, int], occupied: set) -> None:
+    """צריך לדוג בכל שלב (דג הוא אחד מסוגי האוכל) - אז תמיד יש מים עם דגים שאפשר להגיע לידם."""
+    open_area = reachable(grid, START_TILE)
+
+    def near_open(x: int, y: int) -> bool:
+        return any((x + dx, y + dy) in open_area for dx in (-1, 0, 1) for dy in (-1, 0, 1))
+
+    water = [(x, y) for y, row in enumerate(grid) for x, t in enumerate(row)
+             if t.is_water and near_open(x, y)]
+    if any(grid[y][x] == Tile.FISH for x, y in water):
+        return
+    if water:
+        x, y = random.choice(water)
+        grid[y][x] = Tile.FISH
+        return
+    spots = [t for t in open_area if t not in occupied and t not in (START_TILE, exit_tile)]
+    random.shuffle(spots)
+    for x, y in spots:                       # אין מים בכלל ליד - הופכים משבצת לבריכה קטנה
+        grid[y][x] = Tile.FISH
+        if path_exists(grid, START_TILE, exit_tile):
+            return
+        grid[y][x] = Tile.FLOOR
 
 
 def armor_walls(grid: Grid) -> None:

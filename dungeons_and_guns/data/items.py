@@ -60,15 +60,17 @@ POTIONS = [
 # מה שיוצא מהסדנה ומהמים הוא נא (cooks_into) - מבשלים בתנור, אחרת יש 5% סיכוי לחלות.
 # גבינה לא צריך לבשל.
 FOODS = [
-    Food(id="dough",    name="בצק",          heal=15, cooks_into="bread",    desc="אופים בתנור ומקבלים לחם"),
-    Food(id="eggs",     name="ביצים טרופות", heal=15, cooks_into="omelette", desc="מטגנים בתנור ומקבלים חביתה"),
-    Food(id="batter",   name="בלילת עוגה",   heal=35, cooks_into="cake",     desc="אופים בתנור ומקבלים עוגה"),
-    Food(id="raw_fish", name="דג נא",        heal=20, cooks_into="fish",     desc="מקבלים כשדגים עם חכה - כדאי לבשל"),
-    Food(id="bread",    name="לחם",          heal=15, desc="לחם טרי מהתנור"),
-    Food(id="omelette", name="חביתה",        heal=15, desc="חביתה משתי ביצים"),
-    Food(id="cheese",   name="גבינה",        heal=20, desc="גבינה מחלב - לא צריך לבשל"),
-    Food(id="cake",     name="עוגה",         heal=35, desc="עוגה גדולה - מחזירה הרבה חיים"),
-    Food(id="fish",     name="דג מטוגן",     heal=20, desc="דג מבושל מהתנור"),
+    Food(id="dough",    name="בצק",          heal=7, cooks_into="bread",    desc="אופים בתנור ומקבלים לחם"),
+    Food(id="eggs",     name="ביצים טרופות", heal=7, cooks_into="omelette", desc="מטגנים בתנור ומקבלים חביתה"),
+    Food(id="batter",   name="בלילת עוגה",   heal=10, cooks_into="cake",     desc="אופים בתנור ומקבלים עוגה"),
+    Food(id="raw_meat", name="בשר נא",       heal=9, cooks_into="steak",    desc="מקבלים מפרות, כבשים ותרנגולות - כדאי לצלות"),
+    Food(id="raw_fish", name="דג נא",        heal=5, cooks_into="fish",     desc="מקבלים כשדגים עם חכה - כדאי לבשל"),
+    Food(id="bread",    name="לחם",          heal=7, desc="לחם טרי מהתנור"),
+    Food(id="omelette", name="חביתה",        heal=7, desc="חביתה משתי ביצים"),
+    Food(id="cheese",   name="גבינה",        heal=8, desc="גבינה מחלב - לא צריך לבשל"),
+    Food(id="cake",     name="עוגה",         heal=10, desc="עוגה גדולה - מחזירה הרבה חיים"),
+    Food(id="steak",    name="בשר צלוי",     heal=9, desc="בשר צלוי מהתנור"),
+    Food(id="fish",     name="דג מטוגן",     heal=5, desc="דג מבושל מהתנור"),
 ]
 
 OVEN = Oven(id="oven", name="תנור", price=0, uses=3, desc="מבשלים בו 3 פעמים ואז הוא נגמר")

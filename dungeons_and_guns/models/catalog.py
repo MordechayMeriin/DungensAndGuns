@@ -156,6 +156,16 @@ class Rank(BaseModel):
     unlocks: tuple[str, ...] = ()   # ה-id של כלי הנשק שנפתחים בדרגה הזו
 
 
+class Material(BaseModel):
+    """חומר שאוספים מהמשאבים (מטיל ברזל, בול עץ, עור...) ומכינים ממנו דברים בסדנה."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: str
+    name: str
+    art: str                    # איזה ציור מציירים בתיק ובסדנה
+
+
 class ResourceType(BaseModel):
     """סוג משאב במפה. renew = אחרי כמה מילישניות המשאב חוזר (0 = נעלם לתמיד)."""
 
@@ -163,7 +173,8 @@ class ResourceType(BaseModel):
 
     kind: ResourceKind
     name: str
-    material: str | None = None     # הפריט שנכנס לתיק בכל איסוף (למשל "מטיל ברזל")
+    drops: tuple[str, ...] = ()     # החומרים שנכנסים לתיק בכל איסוף (פרה: חלב, עור, עצם)
+    food: str | None = None         # אוכל שמקבלים (פרה: בשר נא)
     tool: str | None
     value: Range
     color: Color
@@ -172,7 +183,7 @@ class ResourceType(BaseModel):
     weight: int = Field(gt=0)
 
 
-def _check_needs(value: dict[ResourceKind, int]) -> dict[ResourceKind, int]:
+def _check_needs(value: dict[str, int]) -> dict[str, int]:
     if not value or any(n <= 0 for n in value.values()):
         raise ValueError("a recipe needs at least one material, each at least once")
     return value
@@ -185,5 +196,5 @@ class Recipe(BaseModel):
 
     kind: ItemKind
     item: str                   # ה-id של הפריט שמקבלים
-    needs: Annotated[dict[ResourceKind, int], AfterValidator(_check_needs)]
+    needs: Annotated[dict[str, int], AfterValidator(_check_needs)]   # חומר -> כמה
     potions: dict[str, int] = Field(default_factory=dict)  # תרופות שנכנסות למתכון (נוסף לחומרים)

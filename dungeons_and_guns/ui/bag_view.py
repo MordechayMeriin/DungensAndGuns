@@ -11,7 +11,7 @@ import pygame
 
 from ..config import SCREEN_H, SCREEN_W
 from ..data import CATALOG
-from ..models import SMALL_TO_BIG, Coin, GameState, ItemKind, ResourceKind, SlotItem
+from ..models import SMALL_TO_BIG, Coin, GameState, ItemKind, SlotItem
 from ..systems.money import coin_name
 from . import colors
 from .canvas import Canvas
@@ -54,9 +54,9 @@ def bag_groups(state: GameState) -> list[Group]:
     if inv.poison_arrows:
         ammo.append(Entry("חיצים מורעלים", str(inv.poison_arrows), CATALOG.poison))
     money = [money_entry(state, coin) for coin in reversed(SMALL_TO_BIG)]
-    materials = [Entry(r.material, str(inv.material_count(r.kind)), art="mat_%s" % r.kind)
-                 for r in CATALOG.resources if r.material and inv.material_count(r.kind) > 0
-                 and r.kind not in (ResourceKind.GOLD, ResourceKind.DIAMOND)]   # הם בקבוצת הכסף
+    materials = [Entry(m.name, str(inv.material_count(m.id)), art=m.art)
+                 for m in CATALOG.materials if inv.material_count(m.id) > 0
+                 and m.id not in ("gold", "diamond")]                        # הם בקבוצת הכסף
     owned = ([Entry(CATALOG.key.name, str(inv.keys), CATALOG.key)] if inv.keys else [])
     if inv.oven_uses:
         owned.append(Entry("%s (בישולים)" % CATALOG.oven.name, str(inv.oven_uses), CATALOG.oven))
