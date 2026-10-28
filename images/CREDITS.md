@@ -167,6 +167,14 @@
   - צלם/יוצר: Zachi Evenor
   - רישיון: CC BY 2.0  https://creativecommons.org/licenses/by/2.0
   - מקור: https://commons.wikimedia.org/wiki/File:IWI-Negev-Zachi-Evenor-01-white.jpg
+- **vest** - File:Giubetto Antiproiettile - standard issue balllstic vest (cropped).png
+  - צלם/יוצר: Esercito de terra
+  - רישיון: CC BY 2.5  https://creativecommons.org/licenses/by/2.5
+  - מקור: https://commons.wikimedia.org/wiki/File:Giubetto_Antiproiettile_-_standard_issue_balllstic_vest_(cropped).png
+- **helmet** - File:M1 compo 01 noBG.jpg (רק הקסדה 3a מתוך התמונה)
+  - צלם/יוצר: Auge=mit
+  - רישיון: CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
+  - מקור: https://commons.wikimedia.org/wiki/File:M1_compo_01_noBG.jpg
 
 לפריטים שאין להם תצלום חופשי מתאים (מכוש, חכה, לפיד, סירה, תרופות,
-רימונים, ציוד הגנה ועוד) המשחק מצייר את הפריט בעצמו בתוך הקוד.
+רימונים, מגן ועוד) המשחק מצייר את הפריט בעצמו בתוך הקוד.
