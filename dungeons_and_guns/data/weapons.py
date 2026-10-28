@@ -48,10 +48,10 @@ WEAPONS = [
     Weapon(id="m4a3",      name="M4A3",            cat=C.RIFLES, art="ar_m16", kind=K.GUN, dmg=(15, 20), acc=0.72, rng=315, cooldown=125, price=1200),
     Weapon(id="m4a4",      name="M4A4",            cat=C.RIFLES, art="ar_m16", kind=K.GUN, dmg=(15, 21), acc=0.73, rng=320, cooldown=120, price=1250),
     Weapon(id="ak47",      name="AK-47",           cat=C.RIFLES, art="ar_ak",  kind=K.GUN, dmg=(16, 22), acc=0.62, rng=320, cooldown=190, price=950, ammo="ammo_ak"),
-    Weapon(id="aks47",     name="AKS-47",          cat=C.RIFLES, art="ar_ak",  kind=K.GUN, dmg=(16, 22), acc=0.61, rng=315, cooldown=185, price=980, ammo="ammo_ak"),
-    Weapon(id="akm",       name="AKM",             cat=C.RIFLES, art="ar_ak",  kind=K.GUN, dmg=(16, 23), acc=0.64, rng=325, cooldown=180, price=1050, ammo="ammo_ak"),
-    Weapon(id="akms",      name="AKMS",            cat=C.RIFLES, art="ar_ak",  kind=K.GUN, dmg=(16, 23), acc=0.63, rng=320, cooldown=175, price=1080, ammo="ammo_ak"),
-    Weapon(id="type56",    name="TYPE 56",         cat=C.RIFLES, art="ar_ak",  kind=K.GUN, dmg=(15, 22), acc=0.60, rng=310, cooldown=185, price=900, ammo="ammo_ak"),
+    Weapon(id="aks47",     name="AK-103",          cat=C.RIFLES, art="ar_ak",  kind=K.GUN, dmg=(16, 22), acc=0.61, rng=315, cooldown=185, price=980, ammo="ammo_ak"),
+    Weapon(id="akm",       name="AK-101",          cat=C.RIFLES, art="ar_ak",  kind=K.GUN, dmg=(16, 23), acc=0.64, rng=325, cooldown=180, price=1050, ammo="ammo_ak"),
+    Weapon(id="akms",      name="AK-12",           cat=C.RIFLES, art="ar_ak",  kind=K.GUN, dmg=(16, 23), acc=0.63, rng=320, cooldown=175, price=1080, ammo="ammo_ak"),
+    Weapon(id="type56",    name="AK-74",           cat=C.RIFLES, art="ar_ak",  kind=K.GUN, dmg=(15, 22), acc=0.60, rng=310, cooldown=185, price=900, ammo="ammo_ak"),
     Weapon(id="tavor",     name="תבור X95",        cat=C.RIFLES, art="ar_m16", kind=K.GUN, dmg=(16, 22), acc=0.74, rng=330, cooldown=140, price=1400),
 
     # ----- רובי צלפים -----

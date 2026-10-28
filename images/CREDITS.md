@@ -7,14 +7,18 @@
   - צלם/יוצר: Ickybicky at en.wikipedia
   - רישיון: Public domain  None
   - מקור: https://commons.wikimedia.org/wiki/File:AK-47_assault_rifle.jpg
-- **akm** - File:AKM RIFLE.png
-  - צלם/יוצר: Ausiecapta
-  - רישיון: CC BY-SA 3.0  https://creativecommons.org/licenses/by-sa/3.0
-  - מקור: https://commons.wikimedia.org/wiki/File:AKM_RIFLE.png
-- **aks47** - File:AK-47 type II noBG.png
-  - צלם/יוצר: User:Nemo5576
+- **akm** (AK-101) - File:AK-101 assault rifle 2012 noBG.png
+  - צלם/יוצר: Mike1979 Russia
   - רישיון: CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
-  - מקור: https://commons.wikimedia.org/wiki/File:AK-47_type_II_noBG.png
+  - מקור: https://commons.wikimedia.org/wiki/File:AK-101_assault_rifle_2012_noBG.png
+- **akms** (AK-12) - File:AK-12.png
+  - צלם/יוצר: Nickel nitride (צילום), Sumek101 (עריכה)
+  - רישיון: CC0  http://creativecommons.org/publicdomain/zero/1.0/deed.en
+  - מקור: https://commons.wikimedia.org/wiki/File:AK-12.png
+- **aks47** (AK-103) - File:AK-103 Synthetic Furniture.png
+  - צלם/יוצר: Isaac Lees
+  - רישיון: CC BY-SA 3.0  https://creativecommons.org/licenses/by-sa/3.0
+  - מקור: https://commons.wikimedia.org/wiki/File:AK-103_Synthetic_Furniture.png
 - **awp** - File:Accuracy International Arctic Warfare - Psg 90 G24.png
   - צלם/יוצר: Mr Bullitt
   - רישיון: CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
@@ -143,10 +147,10 @@
   - צלם/יוצר: MathKnight / new "digital editing" by Auge=mit
   - רישיון: CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
   - מקור: https://commons.wikimedia.org/wiki/File:IWI-Tavor-TAR-21w1_new_noBG.png
-- **type56** - File:Chinese Type 56-1 Assault Rifle other side.jpg
-  - צלם/יוצר: RRT877
+- **type56** (AK-74) - File:Servicerifle-ak-74.png
+  - צלם/יוצר: Kalashnikov Concern
   - רישיון: CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
-  - מקור: https://commons.wikimedia.org/wiki/File:Chinese_Type_56-1_Assault_Rifle_other_side.jpg
+  - מקור: https://commons.wikimedia.org/wiki/File:Servicerifle-ak-74.png
 - **uzi** - File:Uzi-nobg.png
   - צלם/יוצר: John Torch II
   - רישיון: CC0  http://creativecommons.org/publicdomain/zero/1.0/deed.en

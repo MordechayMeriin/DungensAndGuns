@@ -13,7 +13,7 @@ AMMO_TYPES = [
              desc="לאקדחים התופיים (רוגר 101, סמית' אנד ווסון)"),
     AmmoType(id="ammo_smg",      name="כדורי תת מקלע", pack=60, price=100, desc="לעוזי, מק 10, MP5 ו-MP7"),
     AmmoType(id="ammo_rifle",    name="כדורי רובה",    pack=30, price=110, desc="לרובי סער מסוג M16, M4 ותבור"),
-    AmmoType(id="ammo_ak",       name="כדורי AK",      pack=30, price=105, desc="לכל משפחת ה-AK ו-TYPE 56"),
+    AmmoType(id="ammo_ak",       name="כדורי AK",      pack=30, price=105, desc="לכל משפחת ה-AK"),
     AmmoType(id="ammo_shell",    name="כדורי שוטגן",   pack=12, price=90,  desc="לרובי צייד"),
     AmmoType(id="ammo_sniper",   name="כדורי צלפים",   pack=10, price=150, desc="לרובי צלפים"),
     AmmoType(id="ammo_mg",       name="חגורת מקלע",    pack=60, price=200, desc="למקלעים כבדים"),
