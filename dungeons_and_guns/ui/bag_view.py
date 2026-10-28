@@ -58,6 +58,8 @@ def bag_groups(state: GameState) -> list[Group]:
                  for m in CATALOG.materials if inv.material_count(m.id) > 0
                  and m.id not in ("gold", "diamond")]                        # הם בקבוצת הכסף
     owned = ([Entry(CATALOG.key.name, str(inv.keys), CATALOG.key)] if inv.keys else [])
+    if inv.quiver:
+        owned.append(Entry(CATALOG.quiver.name, "", CATALOG.quiver))
     if inv.oven_uses:
         owned.append(Entry("%s (בישולים)" % CATALOG.oven.name, str(inv.oven_uses), CATALOG.oven))
     owned += ([Entry(t.name, "", t) for t in CATALOG.tools if t.id in inv.tools]

@@ -9,7 +9,7 @@ from ..config import TILE
 from ..models import (Bullet, Enemy, GameState, Grenade, MissionKind, SmokeCloud, Tile, Weapon,
                       WeaponCategory, WeaponKind)
 from . import health, missions, money, particles, ranks
-from .inventory import aim_bonus, current_weapon, gear_items, reduce_multiplier
+from .inventory import add_ammo, aim_bonus, current_weapon, gear_items, reduce_multiplier
 
 GRENADE_FUSE_MS = 900
 ENEMY_GRENADE_FUSE_MS = 1500    # רימון של אויב - יש קצת יותר זמן לברוח
@@ -207,9 +207,8 @@ def loot_ammo(state: GameState, enemy: Enemy) -> str:
     ammo = CATALOG.ammo_for(enemy.weapon)
     if not ammo or random.random() > LOOT_CHANCE:
         return ""
-    count = max(2, ammo.pack // 4)
-    state.inventory.add_ammo(ammo.id, count)
-    return " ולקחת %d %s" % (count, ammo.name)
+    count = add_ammo(state.inventory, ammo.id, max(2, ammo.pack // 4))
+    return " ולקחת %d %s" % (count, ammo.name) if count else ""
 
 
 def loot_grenades(state: GameState, enemy: Enemy) -> str:

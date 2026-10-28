@@ -116,6 +116,13 @@ class Poison(ItemBase):
     seconds: int = Field(gt=0)      # כמה שניות הרעל פועל
 
 
+class Quiver(ItemBase):
+    """אשפת חיצים - מכינים פעם אחת מעור. בלי אשפה אפשר להחזיק רק מעט חיצים."""
+
+    ammo: str                       # איזו תחמושת היא מחזיקה (חיצים)
+    limit_without: int = Field(gt=0)   # כמה אפשר להחזיק בלי אשפה
+
+
 class Potion(ItemBase):
     heal: int = Field(gt=0)
 

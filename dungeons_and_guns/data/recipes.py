@@ -21,6 +21,8 @@ RECIPES = [
     Recipe(kind=I.AMMO, item="ammo_sniper",   needs={"copper": 2, "gas": 1, "gold": 1}),
     Recipe(kind=I.AMMO, item="ammo_mg",       needs={"copper": 3, "gas": 2, "iron": 1}),
     Recipe(kind=I.AMMO, item="ammo_arrow",    needs={"log": 2, "iron": 1}),
+    # אשפת חיצים מעור (פעם אחת)
+    Recipe(kind=I.QUIVER, item="quiver",      needs={"leather": 1}),
     # מפתח לשערים - מעצם
     Recipe(kind=I.KEY,  item="key",           needs={"bone": 1}),
     # רעל לחיצים: תרופה בינונית + כותנה + צמר

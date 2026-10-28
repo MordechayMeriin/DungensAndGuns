@@ -79,6 +79,7 @@ class ItemKind(StrEnum):
     KEY = "key"
     OVEN = "oven"
     POISON = "poison"
+    QUIVER = "quiver"
 
 
 class MissionKind(StrEnum):

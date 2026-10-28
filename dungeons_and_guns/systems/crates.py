@@ -7,7 +7,7 @@ from ..data import CATALOG
 from ..models import Crate, CrateKind, GameState, MissionKind
 from ..world import make_enemy
 from . import health, missions, money, particles
-from .inventory import give_random_gear, give_random_tool, give_weapon
+from .inventory import add_ammo, give_random_gear, give_random_tool, give_weapon
 
 
 def open_crate(state: GameState, crate: Crate) -> None:
@@ -45,8 +45,9 @@ def good_crate(state: GameState, crate: Crate) -> None:
         return
     if roll < 0.58:
         ammo = random.choice(CATALOG.ammo_types)
-        inv.add_ammo(ammo.id, ammo.pack)
-        state.say("בתיבה היו %d %s!" % (ammo.pack, ammo.name))
+        got = add_ammo(inv, ammo.id, ammo.pack)
+        state.say("בתיבה היו %d %s!" % (ammo.pack, ammo.name) if got == ammo.pack else
+                  "בתיבה היו %s, אבל נכנסו לך רק %d (אין אשפת חיצים)" % (ammo.name, got))
         return
     if roll < 0.66:
         item = random.choice(CATALOG.throwables)

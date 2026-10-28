@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict
 from ..data import CATALOG
 from ..models import Food, GameState, ItemBase, ItemKind, Rank, Recipe
 from . import crafting, money, ranks, wheel
-from .inventory import give_item
+from .inventory import ammo_room, give_item
 
 
 class ShopKind(StrEnum):
@@ -91,6 +91,9 @@ def buy(state: GameState, row: ShopRow) -> bool:
         state.play("no", gap=400)
         state.say("צריך דרגת %s כדי לקנות %s (יש לך %d מתוך %d נקודות)"
                   % (rank.name, item.name, state.player.points, rank.points))
+        return False
+    if row.kind == ShopKind.AMMO and ammo_room(inv, item.id) == 0:
+        crafting.no_room(state, item.name)
         return False
     if row.owned or inv.money < item.price:
         return False

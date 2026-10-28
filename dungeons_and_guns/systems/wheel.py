@@ -7,7 +7,7 @@ import random
 from ..data import CATALOG
 from ..models import GameState, WheelOutcome, WheelSlice, WheelSpin
 from . import health, money, ranks
-from .inventory import give_random_gear, give_random_tool, give_weapon
+from .inventory import add_ammo, give_random_gear, give_random_tool, give_weapon
 
 FRICTION = 0.975            # בערך שלוש שניות סיבוב
 STOP_SPEED = 0.005
@@ -64,8 +64,7 @@ def apply(state: GameState, slice_: WheelSlice) -> str:
         case WheelOutcome.GRENADES:
             if random.random() < 0.5:
                 ammo = random.choice(CATALOG.ammo_types)
-                count = ammo.pack * 2
-                inv.add_ammo(ammo.id, count)
+                count = add_ammo(inv, ammo.id, ammo.pack * 2)
                 return "זכית ב-%d %s!" % (count, ammo.name)
             item = random.choice(CATALOG.throwables)
             count = random.randint(2, 4)

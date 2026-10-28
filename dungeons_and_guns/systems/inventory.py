@@ -40,7 +40,7 @@ def give_weapon(inv: Inventory, weapon: Weapon) -> None:
     inv.add_to_hotbar(SlotItem(kind=ItemKind.WEAPON, id=weapon.id))
     ammo = CATALOG.ammo_for(weapon)
     if ammo:
-        inv.add_ammo(ammo.id, ammo.pack)
+        add_ammo(inv, ammo.id, ammo.pack)
 
 
 def owns(inv: Inventory, kind: ItemKind, item_id: str) -> bool:
@@ -52,8 +52,26 @@ def owns(inv: Inventory, kind: ItemKind, item_id: str) -> bool:
             return item_id in inv.weapons
         case ItemKind.GEAR:
             return item_id in inv.gear
+        case ItemKind.QUIVER:
+            return inv.quiver
         case _:
             return False
+
+
+def ammo_room(inv: Inventory, ammo_id: str) -> int | None:
+    """כמה עוד תחמושת מהסוג הזה נכנסת (None = כמה שרוצים). חיצים בלי אשפה - עד 30."""
+    quiver = CATALOG.quiver
+    if ammo_id != quiver.ammo or inv.quiver:
+        return None
+    return max(0, quiver.limit_without - inv.ammo_count(ammo_id))
+
+
+def add_ammo(inv: Inventory, ammo_id: str, count: int) -> int:
+    """מוסיף תחמושת עד כמה שנכנס. מחזיר כמה באמת נכנס."""
+    room = ammo_room(inv, ammo_id)
+    count = count if room is None else min(count, room)
+    inv.add_ammo(ammo_id, count)
+    return count
 
 
 def give_item(inv: Inventory, kind: ItemKind, item: ItemBase) -> None:
@@ -66,7 +84,7 @@ def give_item(inv: Inventory, kind: ItemKind, item: ItemBase) -> None:
         case ItemKind.WEAPON:
             give_weapon(inv, item)
         case ItemKind.AMMO:
-            inv.add_ammo(item.id, item.pack)
+            add_ammo(inv, item.id, item.pack)
         case ItemKind.THROWABLE:
             inv.add_throwable(item.id, 1)
         case ItemKind.POTION:
@@ -79,6 +97,8 @@ def give_item(inv: Inventory, kind: ItemKind, item: ItemBase) -> None:
             inv.oven_uses += item.uses
         case ItemKind.POISON:
             inv.poison_arrows += item.arrows
+        case ItemKind.QUIVER:
+            inv.quiver = True
 
 
 def give_random_tool(inv: Inventory) -> Tool | None:

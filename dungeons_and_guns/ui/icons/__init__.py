@@ -39,7 +39,7 @@ PAINTERS = {
     "cheese": it.paint_cheese, "cake": it.paint_cake, "fish": it.paint_fish,
     "raw_fish": lambda g: it.paint_fish(g, cooked=False), "dough": it.paint_dough,
     "eggs": it.paint_eggs, "batter": it.paint_batter, "oven": it.paint_oven,
-    "poison": it.paint_poison, "coin": it.paint_coin, "dollar": it.paint_dollar,
+    "poison": it.paint_poison, "quiver": it.paint_quiver, "coin": it.paint_coin, "dollar": it.paint_dollar,
     # חומרים - המפתח הוא "mat_" + סוג המשאב
     "mat_tree": it.paint_mat_log, "mat_bricks": it.paint_mat_brick,
     "mat_copper": it.paint_mat_copper, "mat_iron": it.paint_mat_iron,

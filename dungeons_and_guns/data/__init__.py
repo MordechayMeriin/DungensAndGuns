@@ -3,7 +3,7 @@
 
 from .catalog import Catalog
 from .materials import MATERIALS
-from .items import AMMO_TYPES, FOODS, GEAR, KEY, OVEN, POISON, POTIONS, TOOLS, WHEEL_SLICES, WHEEL_TICKET
+from .items import AMMO_TYPES, FOODS, GEAR, KEY, OVEN, POISON, POTIONS, QUIVER, TOOLS, WHEEL_SLICES, WHEEL_TICKET
 from .ranks import RANKS
 from .recipes import RECIPES
 from .resources import RESOURCE_TYPES
@@ -19,6 +19,7 @@ CATALOG = Catalog(
     key=KEY,
     oven=OVEN,
     poison=POISON,
+    quiver=QUIVER,
     resources=RESOURCE_TYPES,
     materials=MATERIALS,
     recipes=RECIPES,

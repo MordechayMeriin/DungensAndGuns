@@ -7,6 +7,7 @@ from ..config import SCREEN_H, SCREEN_W
 from ..data import CATALOG
 from ..models import GameState, ItemKind, WeaponKind
 from ..systems import crafting
+from ..systems.inventory import ammo_room
 from ..systems.money import wallet_text
 from ..systems.shop import ShopKind, ShopRow, shop_sections
 from . import colors
@@ -60,8 +61,11 @@ def row_label(state: GameState, row: ShopRow) -> str:
                 return "%s   %s | מניחים ובורחים - בום אחרי 3 שניות (יש לך %d)" % (item.name, walls, have)
             return "%s   נזק %d-%d בכל הסביבה (יש לך %d)" % (item.name, *item.dmg, have)
         case ShopKind.AMMO:
-            return "%s   %s | %d %s בחפיסה (יש לך %d)" % (
-                item.name, item.desc, item.pack, item.unit, inv.ammo_count(item.id))
+            have = "%d" % inv.ammo_count(item.id)
+            if ammo_room(inv, item.id) is not None:            # חיצים בלי אשפה
+                have += "/%d" % CATALOG.quiver.limit_without
+            return "%s   %s | %d %s בחפיסה (יש לך %s)" % (
+                item.name, item.desc, item.pack, item.unit, have)
         case ShopKind.POISON:
             return "%s   %s (מורעלים עכשיו: %d)" % (item.name, item.desc, inv.poison_arrows)
         case ShopKind.KEY:

@@ -5,7 +5,7 @@ from functools import cached_property
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from ..models import (AmmoType, Food, Gear, GearCategory, ItemBase, ItemKind, Key, Material, Oven, Poison, Potion, Rank, Recipe, ResourceKind,
+from ..models import (AmmoType, Food, Gear, GearCategory, ItemBase, ItemKind, Key, Material, Oven, Poison, Potion, Quiver, Rank, Recipe, ResourceKind,
                       ResourceType, Tool, Weapon, WeaponCategory, WeaponKind, WheelSlice,
                       WheelTicket)
 
@@ -29,6 +29,7 @@ class Catalog(BaseModel):
     key: Key
     oven: Oven
     poison: Poison
+    quiver: Quiver
     resources: list[ResourceType]
     materials: list[Material]
     recipes: list[Recipe]
@@ -74,6 +75,8 @@ class Catalog(BaseModel):
             if not set(recipe.needs) <= materials:
                 raise ValueError("recipe %s needs unknown materials: %s"
                                  % (recipe.item, sorted(set(recipe.needs) - materials)))
+        if self.quiver.ammo not in ammo_ids:
+            raise ValueError("quiver is for unknown ammo %s" % self.quiver.ammo)
         if self.poison.ammo not in ammo_ids:
             raise ValueError("poison is for unknown ammo %s" % self.poison.ammo)
         food_ids = {f.id for f in self.foods}
@@ -166,9 +169,9 @@ class Catalog(BaseModel):
                 return self._gear[item_id]
             case ItemKind.FOOD:
                 return self.food(item_id)
-            case ItemKind.KEY | ItemKind.OVEN | ItemKind.POISON:
+            case ItemKind.KEY | ItemKind.OVEN | ItemKind.POISON | ItemKind.QUIVER:
                 single = {ItemKind.KEY: self.key, ItemKind.OVEN: self.oven,
-                          ItemKind.POISON: self.poison}[kind]
+                          ItemKind.POISON: self.poison, ItemKind.QUIVER: self.quiver}[kind]
                 if item_id != single.id:
                     raise KeyError(item_id)
                 return single
@@ -211,7 +214,6 @@ class Catalog(BaseModel):
 
     @cached_property
     def enemy_weapons(self) -> list[Weapon]:
-        """האויבים מקבלים רק נשק חם, מהזול ליקר, כך שבשלבים הראשונים הם חלשים."""
-        return sorted((w for w in self.weapons
-                       if w.kind == WeaponKind.GUN and w.cat != WeaponCategory.COLD),
+        """הנשקים של האויבים (חם וקר, בלי רימונים), מהזול ליקר - בשלבים הראשונים הם חלשים."""
+        return sorted((w for w in self.weapons if w.kind in (WeaponKind.GUN, WeaponKind.MELEE)),
                       key=lambda w: w.price)

@@ -50,11 +50,12 @@ def test_catalog_ammo_defaults_follow_category():
     assert CATALOG.weapon("dagger").ammo is None
 
 
-def test_enemy_weapons_are_sorted_guns_only():
+def test_enemy_weapons_are_sorted_and_include_cold_weapons():
     prices = [w.price for w in CATALOG.enemy_weapons]
     assert prices == sorted(prices)
-    assert all(w.kind == WeaponKind.GUN and w.cat != WeaponCategory.COLD
-               for w in CATALOG.enemy_weapons)
+    assert all(w.kind in (WeaponKind.GUN, WeaponKind.MELEE) for w in CATALOG.enemy_weapons)
+    ids = {w.id for w in CATALOG.enemy_weapons}
+    assert {"dagger", "sword", "spear", "bow", "slingshot"} <= ids
 
 
 def test_weapon_rejects_bad_damage_range():
@@ -436,8 +437,8 @@ def recipe_for(item_id):
 
 
 def test_workshop_makes_no_weapons_gear_or_potions():
-    assert all(r.kind in (ItemKind.AMMO, ItemKind.FOOD, ItemKind.KEY, ItemKind.OVEN, ItemKind.POISON)
-               for r in CATALOG.recipes)
+    assert all(r.kind in (ItemKind.AMMO, ItemKind.FOOD, ItemKind.KEY, ItemKind.OVEN, ItemKind.POISON,
+                          ItemKind.QUIVER) for r in CATALOG.recipes)
 
 
 def test_craft_food_then_eat_it(state):
@@ -449,6 +450,42 @@ def test_craft_food_then_eat_it(state):
     health.eat(state)
     assert state.player.hp == 50 + CATALOG.food("dough").heal
     assert state.inventory.food == {}
+
+
+# ---------- אשפת חיצים ----------
+def arrows_row():
+    return ShopRow(kind=ShopKind.AMMO, item=CATALOG.ammo("ammo_arrow"))
+
+
+def test_without_quiver_only_30_arrows(state):
+    state.inventory.money = 1000
+    assert shop.buy(state, arrows_row())                     # 15
+    assert shop.buy(state, arrows_row())                     # 30
+    money = state.inventory.money
+    assert not shop.buy(state, arrows_row())                 # אין מקום - לא משלמים
+    assert state.inventory.ammo_count("ammo_arrow") == 30
+    assert state.inventory.money == money and "אשפת חיצים" in state.feedback.message
+
+
+def test_arrows_from_anywhere_stop_at_30(state):
+    from dungeons_and_guns.systems.inventory import add_ammo
+    state.inventory.add_ammo("ammo_arrow", 25)
+    assert add_ammo(state.inventory, "ammo_arrow", 15) == 5
+    assert state.inventory.ammo_count("ammo_arrow") == 30
+    assert add_ammo(state.inventory, "ammo_pistol", 500) == 500   # רק לחיצים יש הגבלה
+
+
+def test_quiver_from_leather_removes_the_limit(state):
+    recipe = recipe_for("quiver")
+    assert recipe.needs == {"leather": 1}
+    state.inventory.add_material("leather", 1)
+    assert crafting.craft(state, recipe)
+    assert state.inventory.quiver
+    assert not crafting.craft(state, recipe)                 # מכינים רק פעם אחת
+    state.inventory.money = 1000
+    for _ in range(4):
+        assert shop.buy(state, arrows_row())
+    assert state.inventory.ammo_count("ammo_arrow") == 60
 
 
 # ---------- רעל ----------

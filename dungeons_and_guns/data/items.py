@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """תחמושת, ציוד, כלי עבודה, תרופות, אוכל וגלגל המזל."""
 
-from ..models import AmmoType, Food, Gear, Key, Oven, Poison, Potion, Tool, WheelSlice, WheelTicket
+from ..models import AmmoType, Food, Gear, Key, Oven, Poison, Potion, Quiver, Tool, WheelSlice, WheelTicket
 from ..models import GearCategory as G
 from ..models import WheelOutcome as W
 
@@ -49,6 +49,9 @@ KEY = Key(id="key", name="מפתח", price=20, desc="פותח שער נעול א
 
 POISON = Poison(id="poison", name="רעל", price=110, ammo="ammo_arrow", arrows=15, dps=5,
                 seconds=5, desc="מרעיל 15 חיצים לקשת: אויב שנפגע מאבד חיים עוד 5 שניות")
+
+QUIVER = Quiver(id="quiver", name="אשפת חיצים", price=0, ammo="ammo_arrow", limit_without=30,
+                desc="בלי אשפה אפשר להחזיק רק 30 חיצים - איתה כמה שרוצים")
 
 POTIONS = [
     Potion(id="small",  name="תרופה קטנה",    heal=25,  price=40,  art="potion_small"),

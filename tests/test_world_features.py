@@ -315,6 +315,7 @@ def test_enemies_get_gear_and_grenades_more_in_later_levels():
 def bare_enemy(state, distance=100, **kw):
     enemy = make_enemy(state.level, state.player.x + distance, state.player.y)
     enemy.gear, enemy.grenades = [], {}
+    enemy.weapon = CATALOG.weapon("glock17")            # אקדח קבוע - לא נשק קר אקראי
     for key, value in kw.items():
         setattr(enemy, key, value)
     state.level.enemies.append(enemy)
@@ -529,3 +530,35 @@ def test_every_level_has_what_you_need_to_cook_everything(number):
                    and (int(r.x // TILE), int(r.y // TILE)) in open_area) >= 3
     fish = [(x, y) for y, row in enumerate(level.grid) for x, t in enumerate(row) if t == Tile.FISH]
     assert any((x + dx, y + dy) in open_area for x, y in fish for dx in (-1, 0, 1) for dy in (-1, 0, 1))
+
+
+# ---------- אויבים עם נשק קר ----------
+def test_enemy_with_sword_runs_at_you_and_hits_up_close(state):
+    open_room(state)
+    state.player.invuln = 0
+    enemy = bare_enemy(state, distance=90, weapon=CATALOG.weapon("sword"))
+    start = enemy.x
+    enemies.update_enemies(state)
+    assert enemy.x < start and not state.level.bullets          # רץ אליך, לא יורה
+    for _ in range(80):
+        state.now += 16
+        enemies.update_enemies(state)
+    assert state.player.hp < state.player.max_hp
+
+
+def test_enemy_spear_does_not_hit_through_wall(state):
+    open_room(state)
+    state.player.invuln = 0
+    state.level.grid[2][3] = Tile.WALL                          # קיר בינך לבין האויב
+    spear = CATALOG.weapon("spear")                              # מגיעה רחוק - אבל לא דרך קיר
+    enemy = bare_enemy(state, distance=64, weapon=spear)         # במשבצת שמעבר לקיר
+    assert 64 <= spear.rng + state.player.r
+    for _ in range(40):
+        state.now += 16
+        enemies.update_enemies(state)
+    assert state.player.hp == state.player.max_hp
+    state.level.grid[2][3] = Tile.FLOOR                         # בלי הקיר - פוגעת
+    for _ in range(40):
+        state.now += 16
+        enemies.update_enemies(state)
+    assert state.player.hp < state.player.max_hp

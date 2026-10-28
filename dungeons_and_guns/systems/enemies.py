@@ -9,8 +9,8 @@ import math
 import random
 
 from ..data import CATALOG
-from ..models import Bullet, Enemy, GameState, Grenade
-from . import weather
+from ..models import Bullet, Enemy, GameState, Grenade, WeaponKind
+from . import health, particles, weather
 from .combat import ENEMY_GRENADE_FUSE_MS, in_smoke, weapon_sound
 from .inventory import gear_items
 
@@ -35,6 +35,9 @@ def update_enemies(state: GameState) -> None:
             throw_smoke(state, e)
         elif not hidden:
             maybe_throw_grenade(state, e, d)
+        if w.kind == WeaponKind.MELEE:
+            melee(state, e, d, hidden)
+            continue
         if d > rng * 0.55:
             dx, dy = (player.x - e.x) / d, (player.y - e.y) / d
             speed = (1.0 + level.number * 0.03) * max(0.5, 1.0 - sum(g.slow for g in gear))
@@ -48,6 +51,25 @@ def update_enemies(state: GameState) -> None:
             dx, dy = (player.x - e.x) / d, (player.y - e.y) / d
             level.bullets.append(Bullet(x=e.x, y=e.y, dx=dx, dy=dy, speed=ENEMY_BULLET_SPEED,
                                         dmg=w.dmg, acc=acc, rng=rng, from_player=False))
+
+
+def melee(state: GameState, e: Enemy, d: float, hidden: bool) -> None:
+    """אויב עם פגיון, חרב או חנית: רץ אליך ומכה מקרוב - אבל לא דרך קיר."""
+    level, player, w = state.level, state.player, e.weapon
+    reach = w.rng + player.r
+    if d > reach * 0.8:
+        dx, dy = (player.x - e.x) / d, (player.y - e.y) / d
+        speed = (1.1 + level.number * 0.03) * max(0.5, 1.0 - sum(g.slow for g in gear_items(e.gear)))
+        if level.can_move(e.x + dx * speed, e.y, e.r):
+            e.x += dx * speed
+        if level.can_move(e.x, e.y + dy * speed, e.r):
+            e.y += dy * speed
+    if (d <= reach and not hidden and player.invuln <= 0 and state.now - e.last_shot > w.cooldown
+            and level.clear_line(e.x, e.y, player.x, player.y)):
+        e.last_shot = state.now
+        state.play("swing", gap=70)
+        particles.spark(level, player.x, player.y, (255, 68, 68))
+        health.hurt(state, random.uniform(*w.dmg))
 
 
 def maybe_throw_grenade(state: GameState, e: Enemy, d: float) -> None:

@@ -3,7 +3,7 @@
 
 from ..data import CATALOG
 from ..models import Food, GameState, ItemKind, Recipe, SlotItem
-from .inventory import give_item, owns
+from .inventory import ammo_room, give_item, owns
 
 
 def missing(state: GameState, recipe: Recipe) -> dict[str, int]:
@@ -33,6 +33,9 @@ def craft(state: GameState, recipe: Recipe) -> bool:
     if already_made(state, recipe):
         return False
     item = CATALOG.item(recipe.kind, recipe.item)
+    if recipe.kind == ItemKind.AMMO and ammo_room(state.inventory, item.id) == 0:
+        no_room(state, item.name)
+        return False
     if not can_craft(state, recipe):
         lacking = ["%d %s" % (n, CATALOG.material(kind).name)
                    for kind, n in missing(state, recipe).items()]
@@ -52,6 +55,8 @@ def craft(state: GameState, recipe: Recipe) -> bool:
     state.play("buy")
     if recipe.kind == ItemKind.OVEN:
         state.say("בנית תנור! אפשר לבשל בו %d פעמים (בסדנה)" % item.uses)
+    elif recipe.kind == ItemKind.QUIVER:
+        state.say("הכנת אשפת חיצים! עכשיו אפשר להחזיק כמה חיצים שרוצים")
     elif recipe.kind == ItemKind.POISON:
         state.say("הכנת רעל! %d החיצים הבאים מורעלים" % inv.poison_arrows)
     else:
@@ -86,3 +91,9 @@ def cook(state: GameState, raw: Food) -> bool:
     else:
         state.say("בישלת %s! התנור נגמר - צריך לבנות חדש מלבנה" % cooked.name)
     return True
+
+
+def no_room(state: GameState, name: str) -> None:
+    state.play("no", gap=400)
+    state.say("אין מקום לעוד %s - בלי אשפת חיצים אפשר רק %d (מכינים אותה מעור)"
+              % (name, CATALOG.quiver.limit_without))

@@ -114,6 +114,7 @@ class Inventory(_Model):
     keys: int = 0                                               # מפתחות לשערים
     oven_uses: int = 0                                          # כמה בישולים נשארו בתנור
     poison_arrows: int = 0                                      # כמה מהחיצים הבאים מורעלים
+    quiver: bool = False                                        # יש אשפת חיצים
     food: dict[str, int] = Field(default_factory=dict)          # אוכל מהסדנה -> כמה מנות
     materials: dict[str, int] = Field(default_factory=dict)    # חומר -> כמה יש
 
