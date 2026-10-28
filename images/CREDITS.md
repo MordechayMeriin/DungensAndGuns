@@ -179,6 +179,26 @@
   - צלם/יוצר: Auge=mit
   - רישיון: CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
   - מקור: https://commons.wikimedia.org/wiki/File:M1_compo_01_noBG.jpg
+- **blaser** - File:Blaser R93 Luxus.jpg
+  - צלם/יוצר: Blaser Jagdwaffen GmbH
+  - רישיון: CC BY-SA 3.0  https://creativecommons.org/licenses/by-sa/3.0
+  - מקור: https://commons.wikimedia.org/wiki/File:Blaser_R93_Luxus.jpg
+- **barrett_mg** - File:M82A2-nobg (cropped).png
+  - צלם/יוצר: Big Tommy K
+  - רישיון: CC0  http://creativecommons.org/publicdomain/zero/1.0/deed.en
+  - מקור: https://commons.wikimedia.org/wiki/File:M82A2-nobg_(cropped).png
+- **glock26** - File:Glock 26 crop.jpg
+  - צלם/יוצר: Domenjod
+  - רישיון: CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
+  - מקור: https://commons.wikimedia.org/wiki/File:Glock_26_crop.jpg
+- **ruger101** - File:Ruger Security-Six-NMAH-AHB2015q024374.jpg
+  - צלם/יוצר: Smithsonian Institution (National Museum of American History)
+  - רישיון: Public domain
+  - מקור: https://commons.wikimedia.org/wiki/File:Ruger_Security-Six-NMAH-AHB2015q024374.jpg
+- **dagger** - File:Sgian dubh Sheffield noBG.jpg (רק הפגיון השלוף מתוך התמונה)
+  - צלם/יוצר: Nesusvet
+  - רישיון: CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
+  - מקור: https://commons.wikimedia.org/wiki/File:Sgian_dubh_Sheffield_noBG.jpg
 
 לפריטים שאין להם תצלום חופשי מתאים (מכוש, חכה, לפיד, סירה, תרופות,
 רימונים, מגן ועוד) המשחק מצייר את הפריט בעצמו בתוך הקוד.
